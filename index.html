@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetSuite Business Intelligence Platform</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🏢 NetSuite Business Intelligence Platform</h1>
+            <p>Inventory Optimization + Sales Velocity + Customer Intelligence + Supplier Intelligence + Predictive Analytics</p>
+        </div>
+        
+        <div class="update-section">
+            <div class="data-info">
+                <div class="timestamp" id="dataTimestamp">
+                    📅 Data as of: August 19, 2025
+                </div>
+                <div class="contact-info">
+                    📧 Questions? Contact Mitch Hunt or Bryan Badilla
+                </div>
+            </div>
+            
+            <div class="upload-section">
+                <div class="file-input-wrapper">
+                    <input type="file" id="csvFileInput" class="file-input" accept=".csv" />
+                    <label for="csvFileInput" class="file-input-label">
+                        📁 Upload Item Cost CSV
+                    </label>
+                </div>
+                <div class="file-input-wrapper">
+                    <input type="file" id="salesFileInput" class="file-input" accept=".xls,.xlsx" />
+                    <label for="salesFileInput" class="file-input-label sales-upload">
+                        📊 Upload Sales by Item Summary (XLS)
+                    </label>
+                </div>
+                <div class="file-input-wrapper">
+                    <input type="file" id="customerFileInput" class="file-input" accept=".xls,.xlsx" />
+                    <label for="customerFileInput" class="file-input-label customer-upload">
+                        👥 Upload Sales by Customer Detail (XLS)
+                    </label>
+                </div>
+                <div class="file-input-wrapper">
+                    <input type="file" id="supplierFileInput" class="file-input" accept=".xls,.xlsx" />
+                    <label for="supplierFileInput" class="file-input-label supplier-upload">
+                        🏭 Upload Purchase Order Details (XLS)
+                    </label>
+                </div>
+                <button onclick="exportToPDF()" class="export-btn">
+                    📄 Export to PDF
+                </button>
+                <button onclick="window.print()" class="export-btn">
+                    🖨️ Print Dashboard
+                </button>
+            </div>
+            
+            <div class="data-status">
+                <div id="costDataStatus" class="status-indicator status-missing">Item Cost: Not Loaded</div>
+                <div id="salesDataStatus" class="status-indicator status-missing">Sales Data: Not Loaded</div>
+                <div id="customerDataStatus" class="status-indicator status-missing">Customer Data: Not Loaded</div>
+                <div id="supplierDataStatus" class="status-indicator status-missing">Supplier Data: Not Loaded</div>
+            </div>
+            
+            <div id="statusMessage"></div>
+        </div>
+        
+        <div class="content-wrapper">
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="avgMargin">32.21%</div>
+                <div class="metric-label">Average Margin</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="totalProfit">$5.4M</div>
+                <div class="metric-label">Total Profit</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="totalRevenue">$14.4M</div>
+                <div class="metric-label">Total Revenue</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="losingItems">367</div>
+                <div class="metric-label">Items Losing Money</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">📈 Sales Order (SO) & Purchase Order (PO) Trends Over Time</div>
+            <div class="chart-wrapper">
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">🆚 New vs ReCert: Sales & Purchase Comparison</div>
+            <div class="chart-wrapper">
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="insights-grid">
+            <div class="insights-card">
+                <div class="insights-title">🎯 Top 5 Profit Generators</div>
+                <div id="topProfitItems">
+                    <div class="insight-item profit-positive">
+                        <strong>CR460XP32:</strong> $92,311 profit (37.6% margin, 2,189 qty)
+                    </div>
+                    <div class="insight-item profit-positive">
+                        <strong>QOB360:</strong> $70,801 profit (45.9% margin, 1,289 qty)
+                    </div>
+                    <div class="insight-item profit-positive">
+                        <strong>BAB3030H:</strong> $66,813 profit (36.2% margin, 1,677 qty)
+                    </div>
+                    <div class="insight-item profit-positive">
+                        <strong>Q230:</strong> $65,050 profit (73.0% margin, 2,281 qty)
+                    </div>
+                    <div class="insight-item profit-positive">
+                        <strong>QOB220:</strong> $52,805 profit (51.1% margin, 2,940 qty)
+                    </div>
+                </div>
+            </div>
+            
+            <div class="insights-card">
+                <div class="insights-title">⚠️ Top 5 Loss Makers</div>
+                <div id="bottomProfitItems">
+                    <div class="insight-item profit-negative">
+                        <strong>GBM34:</strong> $503 loss (-14.8% margin, 73 qty)
+                    </div>
+                    <div class="insight-item profit-negative">
+                        <strong>TCF40RN:</strong> $458 loss (-308.5% margin, 9 qty)
+                    </div>
+                    <div class="insight-item profit-negative">
+                        <strong>QE130:</strong> $330 loss (-12.8% margin, 43 qty)
+                    </div>
+                    <div class="insight-item profit-negative">
+                        <strong>C320KA2:</strong> $259 loss (-119.7% margin, 5 qty)
+                    </div>
+                    <div class="insight-item profit-negative">
+                        <strong>TA1FD350A:</strong> $258 loss (-8.8% margin, 370 qty)
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="insights-card">
+            <div class="insights-title">📊 New vs ReCert Performance Comparison</div>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>New Items <span class="tag tag-new">81.1%</span></th>
+                        <th>ReCert Items <span class="tag tag-recert">18.9%</span></th>
+                        <th>Winner</th>
+                    </tr>
+                </thead>
+                <tbody id="comparisonTableBody">
+                    <tr>
+                        <td><strong>Total Quantity</strong></td>
+                        <td>278,380</td>
+                        <td>17,025</td>
+                        <td><span class="tag tag-new">New</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Avg Profit per Item</strong></td>
+                        <td>$29.06</td>
+                        <td>$26.04</td>
+                        <td><span class="tag tag-new">New</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Total Profit</strong></td>
+                        <td>$5,258,193</td>
+                        <td>$188,176</td>
+                        <td><span class="tag tag-new">New</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Avg Margin %</strong></td>
+                        <td>33.96%</td>
+                        <td>24.72%</td>
+                        <td><span class="tag tag-new">New</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Price Trend (360d→30d)</strong></td>
+                        <td><span class="tag tag-up">+15.4%</span></td>
+                        <td><span class="tag tag-up">+71.1%</span></td>
+                        <td><span class="tag tag-recert">ReCert</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="insights-card">
+            <div class="insights-title">🔍 Key Insights & Observations</div>
+            <div class="insight-item">
+                <strong>💡 Profitability Distribution:</strong> 367 items (5.4%) losing money, 589 items (8.7%) with margins ≤15%
+            </div>
+            <div class="insight-item">
+                <strong>📈 Price Trends:</strong> Both SO and PO prices increasing over time, indicating market inflation
+            </div>
+            <div class="insight-item">
+                <strong>🔄 ReCert Performance:</strong> Lower margins but stronger price appreciation than New items
+            </div>
+            <div class="insight-item">
+                <strong>📊 Data Quality:</strong> SO data more complete than PO data across all time periods
+            </div>
+            <div class="insight-item">
+                <strong>🎯 Action Items:</strong> Focus on fixing 367 negative margin items and review pricing on 589 low-margin items
+            </div>
+        </div>
+        
+        <!-- ALL INTELLIGENCE SECTIONS AT THE BOTTOM -->
+        
+        <!-- Customer Intelligence Section -->
+        <div id="customerIntelligence" class="customer-intelligence">
+            <div class="customer-summary">
+                <h2>👥 Customer Intelligence</h2>
+                <p id="customerConcentration">Analyzing customer concentration risk...</p>
+                <p id="customerOpportunity">Customer growth opportunities identified</p>
+            </div>
+            
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <div class="insights-title">🏆 Top Customers</div>
+                    <div id="topCustomersContent">
+                        <div class="loading">Upload customer data to see analysis...</div>
+                    </div>
+                </div>
+                
+                <div class="insights-card">
+                    <div class="insights-title">💎 Customer Segmentation</div>
+                    <div id="customerSegmentationContent">
+                        <div class="loading">Upload customer data to see analysis...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="insights-card">
+                <div class="insights-title">🎯 Customer Intelligence Insights</div>
+                <div id="customerInsightsContent">
+                    <div class="loading">Upload customer data to see strategic insights...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Supplier Intelligence Section -->
+        <div id="supplierIntelligence" class="supplier-intelligence">
+            <div class="supplier-summary">
+                <h2>🏭 Supplier Intelligence</h2>
+                <p id="supplierConcentration">Analyzing supplier dependency risk...</p>
+                <p id="supplierOpportunity">Supplier optimization opportunities identified</p>
+            </div>
+            
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <div class="insights-title">🏆 Top Suppliers</div>
+                    <div id="topSuppliersContent">
+                        <div class="loading">Upload supplier data to see analysis...</div>
+                    </div>
+                </div>
+                
+                <div class="insights-card">
+                    <div class="insights-title">⚠️ Dependency Risk Analysis</div>
+                    <div id="supplierRiskContent">
+                        <div class="loading">Upload supplier data to see analysis...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="insights-card">
+                <div class="insights-title">🎯 Supplier Strategic Insights</div>
+                <div id="supplierInsightsContent">
+                    <div class="loading">Upload supplier data to see strategic insights...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Inventory Optimization Section -->
+        <div id="inventoryOptimization" class="inventory-optimization">
+            <div class="optimization-summary">
+                <h2>💰 Working Capital Optimization</h2>
+                <p id="optimizationAmount">Analyzing inventory efficiency...</p>
+                <p id="optimizationOpportunity">Cash flow improvement opportunity identified</p>
+            </div>
+            
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <div class="insights-title">🚨 Top High-Dollar Slow Movers</div>
+                    <div id="slowMoversContent">
+                        <div class="loading">Upload both files to see analysis...</div>
+                    </div>
+                </div>
+                
+                <div class="insights-card">
+                    <div class="insights-title">💀 Dead Stock (No Sales)</div>
+                    <div id="deadStockContent">
+                        <div class="loading">Upload both files to see analysis...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Predictive Analytics Section -->
+        <div id="predictiveAnalytics" class="predictive-analytics">
+            <div class="predictive-summary">
+                <h2>🔮 Predictive Analytics</h2>
+                <p id="stockoutRisk">Analyzing stockout risk and demand patterns...</p>
+                <p id="reorderAlerts">Predictive reorder recommendations generated</p>
+            </div>
+            
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <div class="insights-title">🚨 Stockout Risk Alerts</div>
+                    <div id="stockoutAlertsContent">
+                        <div class="loading">Upload cost + sales data to see predictive analysis...</div>
+                    </div>
+                </div>
+                
+                <div class="insights-card">
+                    <div class="insights-title">📈 Demand Forecasting</div>
+                    <div id="demandForecastContent">
+                        <div class="loading">Upload cost + sales data to see forecasts...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <div class="insights-title">🎯 Optimal Reorder Points</div>
+                    <div id="reorderPointsContent">
+                        <div class="loading">Upload cost + sales data to see reorder recommendations...</div>
+                    </div>
+                </div>
+                
+                <div class="insights-card">
+                    <div class="insights-title">💰 Price Optimization</div>
+                    <div id="priceOptimizationContent">
+                        <div class="loading">Upload cost + sales data to see price insights...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="insights-card">
+                <div class="insights-title">🔮 Predictive Insights & Recommendations</div>
+                <div id="predictiveInsightsContent">
+                    <div class="loading">Upload cost + sales data to see predictive analytics...</div>
+                </div>
+            </div>
+        </div>
+        
+        </div> <!-- End content-wrapper -->
+    </div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

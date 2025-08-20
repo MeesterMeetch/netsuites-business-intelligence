@@ -1,0 +1,123 @@
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-workspace
+.sublime-project
+
+# Log Files
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime Data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency Directories
+node_modules/
+bower_components/
+jspm_packages/
+
+# Optional npm Cache Directory
+.npm
+
+# Optional ESLint Cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity File
+.yarn-integrity
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build Outputs
+dist/
+build/
+out/
+
+# Coverage Directory Used by Tools like Istanbul
+coverage/
+.nyc_output
+
+# Compiled Binary Addons
+build/Release
+
+# Temporary Folders
+tmp/
+temp/
+
+# Sample Data Files (Keep actual NetSuite data private)
+sample-data/
+test-data/
+data/
+*.csv
+*.xls
+*.xlsx
+
+# Backup Files
+*.bak
+*.backup
+*.old
+
+# Archive Files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Documentation Build
+docs/_build/
+
+# Python (if using for local server)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Local Development
+.cache/
+.parcel-cache/
+
+# Deployment
+deploy.sh
+deploy/
+
+# Performance
+*.prof
+
+# Security
+secrets/
+private/
+confidential/
+
+# User-specific Files
+config.local.*
+settings.local.*
