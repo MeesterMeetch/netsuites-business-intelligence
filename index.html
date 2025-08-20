@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Enterprise NetSuite Business Intelligence Platform</title>
+    
+    <!-- Mobile Optimization -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2a5298">
     
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
@@ -18,7 +23,7 @@
     <header class="header-nav">
         <div class="nav-container">
             <div class="logo-section">
-                <a href="#" class="logo" onclick="showOverview()">
+                <a href="#" class="logo" onclick="PlatformActions.showOverview()">
                     🏢 NetSuite BI
                 </a>
                 <div class="platform-status">
@@ -27,11 +32,11 @@
             </div>
             <nav>
                 <ul class="nav-links">
-                    <li><a href="#overview" class="active" onclick="showOverview()">Overview</a></li>
-                    <li><a href="#product-intelligence" onclick="showProductIntelligence()">Product Intelligence</a></li>
-                    <li><a href="#treasury-management" onclick="showTreasuryManagement()">Treasury Management</a></li>
-                    <li><a href="#reports" onclick="exportPlatformReport()">Reports</a></li>
-                    <li><a href="#export" onclick="exportDashboard()">Export</a></li>
+                    <li><a href="#overview" class="active" onclick="PlatformActions.showOverview()">Overview</a></li>
+                    <li><a href="#product-intelligence" onclick="PlatformActions.showProductIntelligence()">Product Intelligence</a></li>
+                    <li><a href="#treasury-management" onclick="PlatformActions.showTreasuryManagement()">Treasury Management</a></li>
+                    <li><a href="#reports" onclick="PlatformActions.exportPlatformReport()">Reports</a></li>
+                    <li><a href="#export" onclick="PlatformActions.exportDashboard()">Export</a></li>
                 </ul>
             </nav>
         </div>
@@ -65,7 +70,7 @@
             </div>
             
             <div class="platform-modules">
-                <a href="#product-intelligence" class="module-card product-intelligence" onclick="showProductIntelligence()">
+                <a href="#product-intelligence" class="module-card product-intelligence" onclick="PlatformActions.showProductIntelligence()">
                     <div class="module-header">
                         <span class="module-icon">📊</span>
                         <div>
@@ -98,7 +103,7 @@
                     </div>
                 </a>
                 
-                <a href="#treasury-management" class="module-card treasury-management" onclick="showTreasuryManagement()">
+                <a href="#treasury-management" class="module-card treasury-management" onclick="PlatformActions.showTreasuryManagement()">
                     <div class="module-header">
                         <span class="module-icon">💰</span>
                         <div>
@@ -135,7 +140,7 @@
 
         <!-- Product Intelligence Section -->
         <section id="product-intelligence-section" class="phase-section product-intelligence">
-            <a href="#overview" class="back-button" onclick="showOverview()">
+            <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">
                 ← Back to Overview
             </a>
             
@@ -239,7 +244,7 @@
 
         <!-- Treasury Management Section -->
         <section id="treasury-management-section" class="phase-section treasury-management">
-            <a href="#overview" class="back-button" onclick="showOverview()">
+            <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">
                 ← Back to Overview
             </a>
             
