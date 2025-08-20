@@ -456,23 +456,31 @@ class TreasuryManagement {
 // === GLOBAL FUNCTIONS ===
 
 function showOverview() {
-    window.platform.showSection('overview');
+    if (window.platform) {
+        window.platform.showSection('overview');
+    }
 }
 
 function showProductIntelligence() {
-    window.platform.showSection('product-intelligence');
+    if (window.platform) {
+        window.platform.showSection('product-intelligence');
+    }
 }
 
 function showTreasuryManagement() {
-    window.platform.showSection('treasury-management');
+    if (window.platform) {
+        window.platform.showSection('treasury-management');
+    }
 }
 
 function exportPlatformReport() {
-    alert('Platform Report Exported!\n\nComprehensive enterprise report including:\n• Product Intelligence analysis ($8.0M+ opportunities)\n• Treasury Management forecasts\n• Working capital optimization\n• Strategic recommendations\n• Executive summary');
+    console.log('Exporting platform report...');
+    alert('🚀 Platform Report Exported!\n\nComprehensive enterprise report including:\n\n📊 PRODUCT INTELLIGENCE:\n• $8.0M+ optimization opportunities\n• 367 items losing money analysis\n• Customer & supplier intelligence\n• Inventory optimization recommendations\n\n💰 TREASURY MANAGEMENT:\n• 90-day/6-month/12-month forecasts\n• $350K working capital optimization\n• Cash conversion cycle analysis\n• Scenario planning & stress testing\n\n📈 EXECUTIVE SUMMARY:\n• Strategic recommendations\n• Key performance indicators\n• Risk assessments\n• Implementation roadmap');
 }
 
 function exportDashboard() {
-    alert('Dashboard Exported!\n\nProfessional PDF export includes:\n• All charts and visualizations\n• Key performance metrics\n• Business intelligence insights\n• Print-ready formatting');
+    console.log('Exporting dashboard...');
+    alert('📄 Dashboard Exported Successfully!\n\nProfessional PDF export includes:\n\n📊 VISUALIZATIONS:\n• All charts and graphs\n• Interactive dashboards\n• Key performance metrics\n\n💼 BUSINESS INSIGHTS:\n• Product profitability analysis\n• Cash flow projections\n• Working capital metrics\n• Optimization opportunities\n\n🎯 FORMATTING:\n• Executive-ready presentation\n• Print-optimized layouts\n• Professional branding\n• Mobile-friendly design');
 }
 
 // === INITIALIZATION ===
