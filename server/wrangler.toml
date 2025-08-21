@@ -1,0 +1,19 @@
+name = "netsuite-bi-ingest"
+main = "src/worker.ts"
+compatibility_date = "2024-11-21"
+
+[vars]
+# JSON array of stores; tokens are stored as a secret in the same shape
+# SHOPIFY_STORES example (set via secret):
+# [
+#   {"domain":"essentialparts.myshopify.com","token":"***"},
+#   {"domain":"unitedfuses.myshopify.com","token":"***"},
+#   {"domain":"cbg.myshopify.com","token":"***"}
+# ]
+
+# Optional: default page size + safety cap
+PAGE_SIZE = 100
+MAX_PAGES_PER_RUN = 10
+
+[triggers]
+crons = ["*/30 * * * *"] # every 30 minutes
