@@ -236,9 +236,49 @@
                 <button class="btn btn-secondary" onclick="ProductIntelligence.optimizePortfolio()">
                     🎯 Optimize Portfolio
                 </button>
-                <button class="btn btn-success" onclick="ProductIntelligence.exportReport()">
-                    📄 Export Report
+                <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()">
+                    📉 Export Losing Items
                 </button>
+                <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()">
+                    📦 Export Stockout Risks
+                </button>
+                <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()">
+                    🏭 Export Inventory Optimization
+                </button>
+                <button class="btn btn-success" onclick="ProductIntelligence.exportAllItems()">
+                    📄 Export Complete Analysis
+                </button>
+                <button class="btn btn-primary" onclick="ProductIntelligence.exportReport()" style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);">
+                    📋 Executive Summary
+                </button>
+            </div>
+
+            <!-- Quick Export Section -->
+            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 15px; padding: 1.5rem; margin: 2rem 0; border: 2px solid #e1e8ed; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                <h4 style="margin-top: 0; color: #2c3e50; display: flex; align-items: center;">
+                    <span style="margin-right: 0.5rem;">⚡</span>
+                    Quick Export Actions
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 10px; border: 1px solid #dee2e6;">
+                        <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()" style="width: 100%; margin-bottom: 0.5rem;">
+                            📉 Losing Items
+                        </button>
+                        <small style="color: #6c757d; font-size: 0.85rem; line-height: 1.4;">Items requiring price review or discontinuation</small>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 10px; border: 1px solid #dee2e6;">
+                        <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()" style="width: 100%; margin-bottom: 0.5rem;">
+                            📦 Stockout Risks
+                        </button>
+                        <small style="color: #6c757d; font-size: 0.85rem; line-height: 1.4;">Items running low on stock needing immediate orders</small>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 10px; border: 1px solid #dee2e6;">
+                        <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()" style="width: 100%; margin-bottom: 0.5rem;">
+                            🏭 Inventory Optimization
+                        </button>
+                        <small style="color: #6c757d; font-size: 0.85rem; line-height: 1.4;">Overstocked & dead stock items to liquidate</small>
+                    </div>
+                </div>
             </div>
         </section>
 
