@@ -1,425 +1,375 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Enterprise NetSuite Business Intelligence Platform</title>
-    
-    <!-- Mobile Optimization -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#2a5298">
-    
-    <!-- External Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
-    <!-- Platform Styles -->
-    <link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Business Intelligence by Mitch</title>
+
+  <!-- Mobile / Theme -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#2a5298" />
+
+  <!-- Libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-    <!-- Fixed Header Navigation -->
-    <header class="header-nav">
-        <div class="nav-container">
-            <div class="logo-section">
-                <a href="#" class="logo" onclick="PlatformActions.showOverview()">
-                    🏢 NetSuite BI
-                </a>
-                <div class="platform-status">
-                    $8.0M+ Optimization Platform
-                </div>
-            </div>
-            <nav>
-                <ul class="nav-links">
-                    <li><a href="#overview" class="active" onclick="PlatformActions.showOverview()">Overview</a></li>
-                    <li><a href="#product-intelligence" onclick="PlatformActions.showProductIntelligence()">Product Intelligence</a></li>
-                    <li><a href="#treasury-management" onclick="PlatformActions.showTreasuryManagement()">Treasury Management</a></li>
-                    <li><a href="#reports" onclick="PlatformActions.exportPlatformReport()">Reports</a></li>
-                    <li><a href="#export" onclick="PlatformActions.exportDashboard()">Export</a></li>
-                </ul>
-            </nav>
+  <!-- Header -->
+  <header class="header-nav">
+    <div class="nav-container">
+      <div class="logo-section">
+        <a href="#" class="logo" onclick="PlatformActions.showOverview()">📊 BI by Mitch</a>
+        <div class="platform-status">
+          Data sources: NetSuite + Shopify
         </div>
-    </header>
-
-    <div class="container">
-        <!-- Platform Overview -->
-        <section id="overview" class="platform-overview">
-            <div class="overview-header">
-                <h1 class="overview-title">Enterprise NetSuite Business Intelligence</h1>
-                <p class="overview-subtitle">Advanced analytics platform combining product intelligence with treasury management</p>
-            </div>
-            
-            <div class="overview-metrics">
-                <div class="overview-metric">
-                    <div class="metric-value">$8.0M+</div>
-                    <div class="metric-label">Total Optimization Opportunities</div>
-                </div>
-                <div class="overview-metric">
-                    <div class="metric-value">367</div>
-                    <div class="metric-label">Items Losing Money</div>
-                </div>
-                <div class="overview-metric">
-                    <div class="metric-value">522</div>
-                    <div class="metric-label">Items Below Reorder Point</div>
-                </div>
-                <div class="overview-metric">
-                    <div class="metric-value">180</div>
-                    <div class="metric-label">Days Cash Runway</div>
-                </div>
-            </div>
-            
-            <div class="platform-modules">
-                <a href="#product-intelligence" class="module-card product-intelligence" onclick="PlatformActions.showProductIntelligence()">
-                    <div class="module-header">
-                        <span class="module-icon">📊</span>
-                        <div>
-                            <div class="module-badge product">PRODUCT INTELLIGENCE</div>
-                            <h3 class="module-title">Product Intelligence</h3>
-                        </div>
-                    </div>
-                    <p class="module-description">
-                        Comprehensive product profitability analysis, inventory optimization, and sales performance tracking. 
-                        Identifies profit generators, loss makers, and optimization opportunities.
-                    </p>
-                    <ul class="module-features">
-                        <li>Product profitability analysis</li>
-                        <li>Inventory performance tracking</li>
-                        <li>Sales trend analysis</li>
-                        <li>Margin optimization</li>
-                    </ul>
-                    <div class="module-stats">
-                        <div class="module-stats-title">Key Metrics</div>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-value">$5.4M</div>
-                                <div class="stat-label">Total Profit</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">32.21%</div>
-                                <div class="stat-label">Avg Margin</div>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-                
-                <a href="#treasury-management" class="module-card treasury-management" onclick="PlatformActions.showTreasuryManagement()">
-                    <div class="module-header">
-                        <span class="module-icon">💰</span>
-                        <div>
-                            <div class="module-badge treasury">TREASURY MANAGEMENT</div>
-                            <h3 class="module-title">Treasury Management</h3>
-                        </div>
-                    </div>
-                    <p class="module-description">
-                        Advanced cash flow forecasting with predictive analytics, working capital optimization, 
-                        and comprehensive financial intelligence for strategic planning.
-                    </p>
-                    <ul class="module-features">
-                        <li>90-day tactical forecasting</li>
-                        <li>6-month strategic projections</li>
-                        <li>Working capital optimization</li>
-                        <li>Cash conversion cycle analysis</li>
-                    </ul>
-                    <div class="module-stats">
-                        <div class="module-stats-title">Key Metrics</div>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-value">$350K</div>
-                                <div class="stat-label">WC Opportunity</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">42</div>
-                                <div class="stat-label">CCC Days</div>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-            </div>
-        </section>
-
-        <!-- Product Intelligence Section -->
-        <section id="product-intelligence-section" class="phase-section product-intelligence">
-            <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">
-                ← Back to Overview
-            </a>
-            
-            <div class="phase-header">
-                <span class="phase-badge product">PRODUCT INTELLIGENCE</span>
-                <h1 class="phase-title">📊 Product Intelligence Analytics</h1>
-            </div>
-            
-            <p style="font-size: 1.1rem; color: var(--text-light); margin-bottom: 2rem;">
-                Comprehensive product profitability analysis with <strong>$8.0M+ optimization opportunities</strong> identified. 
-                Advanced analytics for inventory optimization, customer intelligence, supplier analysis, and predictive insights.
-            </p>
-
-            <!-- Product Intelligence Upload Section -->
-            <div class="upload-grid">
-                <div class="upload-card">
-                    <div class="status-indicator" id="cost-status"></div>
-                    <span class="upload-icon">📁</span>
-                    <div class="upload-title">Item Cost CSV</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Inventory → Item Cost<br>
-                        <strong>Required Fields:</strong> Item, Average Item Rate, Average Est. Unit Cost, Quantity
-                    </div>
-                    <input type="file" id="cost-upload" class="file-input" accept=".csv" placeholder="Choose Item Cost CSV...">
-                </div>
-                
-                <div class="upload-card">
-                    <div class="status-indicator" id="sales-status"></div>
-                    <span class="upload-icon">📊</span>
-                    <div class="upload-title">Sales by Item Summary (XLS)</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Sales → Sales by Item Summary<br>
-                        <strong>Required Fields:</strong> Item, Description, Qty Sold, Total Revenue
-                    </div>
-                    <input type="file" id="sales-upload" class="file-input" accept=".xls,.xlsx" placeholder="Choose Sales Summary XLS...">
-                </div>
-                
-                <div class="upload-card">
-                    <div class="status-indicator" id="customer-status"></div>
-                    <span class="upload-icon">👥</span>
-                    <div class="upload-title">Sales by Customer Detail (XLS)</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Sales → Sales by Customer Detail<br>
-                        <strong>Required Fields:</strong> Customer, Transaction Type, Date, Total Revenue
-                    </div>
-                    <input type="file" id="customer-upload" class="file-input" accept=".xls,.xlsx" placeholder="Choose Customer Detail XLS...">
-                </div>
-                
-                <div class="upload-card">
-                    <div class="status-indicator" id="po-status"></div>
-                    <span class="upload-icon">🏭</span>
-                    <div class="upload-title">Purchase Order Details (XLS)</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Purchasing → Purchase Order Detail<br>
-                        <strong>Required Fields:</strong> Vendor, Item, Date, Total Cost, Quantity
-                    </div>
-                    <input type="file" id="po-upload" class="file-input" accept=".xls,.xlsx" placeholder="Choose PO Detail XLS...">
-                </div>
-            </div>
-
-            <!-- Product Intelligence Results Panel -->
-            <div id="product-results-panel" class="results-panel" style="display: none;">
-                <h3 style="margin-top: 0; color: var(--text-dark);">📊 Product Intelligence Results</h3>
-                <div id="product-results-content" class="results-content">
-                    <!-- Results will be populated here -->
-                </div>
-            </div>
-
-            <!-- Product Intelligence Dashboard -->
-            <div class="dashboard-grid">
-                <div class="chart-container">
-                    <h3 class="chart-title">
-                        <span class="chart-icon">📈</span>
-                        Profit vs Loss Analysis
-                    </h3>
-                    <canvas id="product-profit-chart" width="400" height="300"></canvas>
-                </div>
-                
-                <div class="chart-container">
-                    <h3 class="chart-title">
-                        <span class="chart-icon">🎯</span>
-                        Product Performance
-                    </h3>
-                    <canvas id="product-performance-chart" width="400" height="300"></canvas>
-                </div>
-            </div>
-
-            <!-- Product Intelligence Actions -->
-            <div class="action-buttons">
-                <button class="btn btn-primary" onclick="ProductIntelligence.generateAnalysis()">
-                    📊 Generate Analysis
-                </button>
-                <button class="btn btn-secondary" onclick="ProductIntelligence.optimizePortfolio()">
-                    🎯 Optimize Portfolio
-                </button>
-                <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()">
-                    📉 Export Losing Items
-                </button>
-                <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()">
-                    📦 Export Stockout Risks
-                </button>
-                <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()">
-                    🏭 Export Inventory Optimization
-                </button>
-                <button class="btn btn-success" onclick="ProductIntelligence.exportAllItems()">
-                    📄 Export Complete Analysis
-                </button>
-                <button class="btn btn-primary" onclick="ProductIntelligence.exportReport()" style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);">
-                    📋 Executive Summary
-                </button>
-            </div>
-
-            <!-- Quick Export Section -->
-            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 15px; padding: 1.5rem; margin: 2rem 0; border: 2px solid #e1e8ed; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                <h4 style="margin-top: 0; color: #2c3e50; display: flex; align-items: center;">
-                    <span style="margin-right: 0.5rem;">⚡</span>
-                    Quick Export Actions
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 10px; border: 1px solid #dee2e6;">
-                        <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()" style="width: 100%; margin-bottom: 0.5rem;">
-                            📉 Losing Items
-                        </button>
-                        <small style="color: #6c757d; font-size: 0.85rem; line-height: 1.4;">Items requiring price review or discontinuation</small>
-                    </div>
-                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 10px; border: 1px solid #dee2e6;">
-                        <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()" style="width: 100%; margin-bottom: 0.5rem;">
-                            📦 Stockout Risks
-                        </button>
-                        <small style="color: #6c757d; font-size: 0.85rem; line-height: 1.4;">Items running low on stock needing immediate orders</small>
-                    </div>
-                    <div style="text-align: center; padding: 1rem; background: white; border-radius: 10px; border: 1px solid #dee2e6;">
-                        <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()" style="width: 100%; margin-bottom: 0.5rem;">
-                            🏭 Inventory Optimization
-                        </button>
-                        <small style="color: #6c757d; font-size: 0.85rem; line-height: 1.4;">Overstocked & dead stock items to liquidate</small>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Treasury Management Section -->
-        <section id="treasury-management-section" class="phase-section treasury-management">
-            <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">
-                ← Back to Overview
-            </a>
-            
-            <div class="phase-header">
-                <span class="phase-badge treasury">TREASURY MANAGEMENT</span>
-                <h1 class="phase-title">💰 Advanced Cash Flow Intelligence</h1>
-            </div>
-            
-            <p style="font-size: 1.1rem; color: var(--text-light); margin-bottom: 2rem;">
-                Enterprise-grade cash flow forecasting with predictive analytics, working capital optimization, 
-                and advanced business intelligence. Integrates with your existing <strong>$8.0M+ optimization insights</strong> 
-                for comprehensive financial planning.
-            </p>
-
-            <!-- Treasury Upload Section -->
-            <div class="upload-grid">
-                <div class="upload-card">
-                    <div class="status-indicator" id="gl-status"></div>
-                    <span class="upload-icon">📋</span>
-                    <div class="upload-title">General Ledger Data</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Financial → General Ledger<br>
-                        <strong>Required Fields:</strong> Account, Account Name, Balance, Date
-                    </div>
-                    <input type="file" id="gl-upload" class="file-input" accept=".csv,.xls,.xlsx" placeholder="Choose GL file...">
-                </div>
-                
-                <div class="upload-card">
-                    <div class="status-indicator" id="ar-status"></div>
-                    <span class="upload-icon">💳</span>
-                    <div class="upload-title">Accounts Receivable</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Financial → A/R Aging Detail<br>
-                        <strong>Required Fields:</strong> Customer, Invoice Date, Due Date, Amount
-                    </div>
-                    <input type="file" id="ar-upload" class="file-input" accept=".csv,.xls,.xlsx" placeholder="Choose AR file...">
-                </div>
-                
-                <div class="upload-card">
-                    <div class="status-indicator" id="ap-status"></div>
-                    <span class="upload-icon">💰</span>
-                    <div class="upload-title">Accounts Payable</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Financial → A/P Aging Detail<br>
-                        <strong>Required Fields:</strong> Vendor, Bill Date, Due Date, Amount
-                    </div>
-                    <input type="file" id="ap-upload" class="file-input" accept=".csv,.xls,.xlsx" placeholder="Choose AP file...">
-                </div>
-                
-                <div class="upload-card">
-                    <div class="status-indicator" id="cashflow-status"></div>
-                    <span class="upload-icon">📊</span>
-                    <div class="upload-title">Historical Cash Flow</div>
-                    <div class="upload-description">
-                        <strong>NetSuite Path:</strong> Reports → Financial → Cash Flow Statement<br>
-                        <strong>Required Fields:</strong> Period, Operating Activities, Investing, Financing
-                    </div>
-                    <input type="file" id="cashflow-upload" class="file-input" accept=".csv,.xls,.xlsx" placeholder="Choose Cash Flow file...">
-                </div>
-            </div>
-
-            <!-- Status Panel -->
-            <div class="status-panel">
-                <h3 style="margin-top: 0; color: var(--text-dark);">📊 Processing Status & Insights</h3>
-                <div id="status-messages" class="status-messages">
-                    <div class="status-message ready">
-                        <span class="status-icon">✅</span>
-                        <span class="status-text">Treasury Management: Advanced Cash Flow Intelligence ready</span>
-                        <span class="status-time" id="init-time"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Treasury Results Panel -->
-            <div id="treasury-results-panel" class="results-panel" style="display: none;">
-                <h3 style="margin-top: 0; color: var(--text-dark);">💰 Treasury Management Results</h3>
-                <div id="treasury-results-content" class="results-content">
-                    <!-- Results will be populated here -->
-                </div>
-            </div>
-
-            <!-- Treasury Dashboard -->
-            <div class="dashboard-grid">
-                <div class="chart-container">
-                    <h3 class="chart-title">
-                        <span class="chart-icon">📈</span>
-                        90-Day Cash Flow Forecast
-                    </h3>
-                    <canvas id="forecast-90-chart" width="400" height="300"></canvas>
-                </div>
-                
-                <div class="chart-container">
-                    <h3 class="chart-title">
-                        <span class="chart-icon">📊</span>
-                        6-Month Strategic Projection
-                    </h3>
-                    <canvas id="forecast-6m-chart" width="400" height="300"></canvas>
-                </div>
-                
-                <div class="chart-container">
-                    <h3 class="chart-title">
-                        <span class="chart-icon">🎯</span>
-                        Working Capital Optimization
-                    </h3>
-                    <canvas id="working-capital-chart" width="400" height="300"></canvas>
-                </div>
-                
-                <div class="chart-container">
-                    <h3 class="chart-title">
-                        <span class="chart-icon">🎲</span>
-                        Scenario Analysis
-                    </h3>
-                    <canvas id="scenario-chart" width="400" height="300"></canvas>
-                </div>
-            </div>
-
-            <!-- Treasury Actions -->
-            <div class="action-buttons">
-                <button class="btn btn-primary" onclick="TreasuryManagement.generateForecast()">
-                    📊 Generate Forecast
-                </button>
-                <button class="btn btn-secondary" onclick="TreasuryManagement.runScenarioAnalysis()">
-                    🎲 Run Scenario Analysis
-                </button>
-                <button class="btn btn-success" onclick="TreasuryManagement.optimizeWorkingCapital()">
-                    ⚙️ Optimize Working Capital
-                </button>
-                <button class="btn btn-warning" onclick="TreasuryManagement.generateExecutiveReport()">
-                    📄 Executive Report
-                </button>
-            </div>
-        </section>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#overview" class="active" onclick="PlatformActions.showOverview()">Overview</a></li>
+          <li><a href="#product-intelligence" onclick="PlatformActions.showProductIntelligence()">Product Intelligence</a></li>
+          <li><a href="#treasury-management" onclick="PlatformActions.showTreasuryManagement()">Treasury Management</a></li>
+          <li><a href="#reports" onclick="PlatformActions.exportPlatformReport()">Reports</a></li>
+          <li><a href="#export" onclick="PlatformActions.exportDashboard()">Export</a></li>
+        </ul>
+      </nav>
     </div>
+  </header>
 
-    <!-- Platform JavaScript -->
-    <script src="js/dashboard.js"></script>
+  <div class="container">
+    <!-- Overview -->
+    <section id="overview" class="platform-overview">
+      <div class="overview-header">
+        <h1 class="overview-title">Business Intelligence by Mitch</h1>
+        <p class="overview-subtitle">
+          Unified analytics across NetSuite + Shopify — instant store‑level KPIs and product intelligence.
+        </p>
+      </div>
+
+      <!-- Live KPI header -->
+      <div class="overview-metrics">
+        <div class="overview-metric">
+          <div class="metric-value" id="kpi-revenue">$0.00</div>
+          <div class="metric-label">Revenue (30d)</div>
+        </div>
+        <div class="overview-metric">
+          <div class="metric-value" id="kpi-orders">0</div>
+          <div class="metric-label">Orders (30d)</div>
+        </div>
+        <div class="overview-metric">
+          <div class="metric-value" id="kpi-aov">$0.00</div>
+          <div class="metric-label">Average Order Value (30d)</div>
+        </div>
+        <div class="overview-metric">
+          <div class="metric-value" id="kpi-repeat">0.0%</div>
+          <div class="metric-label">Repeat Rate (90d)</div>
+        </div>
+      </div>
+
+      <!-- Store selector -->
+      <div style="display:flex; gap:1rem; align-items:center; margin: 1rem 0 2rem;">
+        <label for="shop-selector" style="font-weight:600;">Store:</label>
+        <select id="shop-selector" style="padding:.5rem .75rem; min-width:260px; border-radius:10px; border:1px solid #d0d7de;"></select>
+      </div>
+
+      <!-- Modules (kept) -->
+      <div class="platform-modules">
+        <a href="#product-intelligence" class="module-card product-intelligence" onclick="PlatformActions.showProductIntelligence()">
+          <div class="module-header">
+            <span class="module-icon">📊</span>
+            <div>
+              <div class="module-badge product">PRODUCT INTELLIGENCE</div>
+              <h3 class="module-title">Product Intelligence</h3>
+            </div>
+          </div>
+          <p class="module-description">
+            Comprehensive product profitability analysis, inventory optimization, and sales performance tracking.
+          </p>
+          <ul class="module-features">
+            <li>Product profitability analysis</li>
+            <li>Inventory performance tracking</li>
+            <li>Sales trend analysis</li>
+            <li>Margin optimization</li>
+          </ul>
+          <!-- (optional) small stats; if you keep them, they’ll be filled by your own scripts later -->
+          <div class="module-stats">
+            <div class="module-stats-title">Key Metrics</div>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-value" id="pi-total-profit">$—</div>
+                <div class="stat-label">Total Profit</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="pi-avg-margin">—%</div>
+                <div class="stat-label">Avg Margin</div>
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <a href="#treasury-management" class="module-card treasury-management" onclick="PlatformActions.showTreasuryManagement()">
+          <div class="module-header">
+            <span class="module-icon">💰</span>
+            <div>
+              <div class="module-badge treasury">TREASURY MANAGEMENT</div>
+              <h3 class="module-title">Treasury Management</h3>
+            </div>
+          </div>
+          <p class="module-description">
+            Cash flow forecasting, working capital optimization, and financial intelligence for strategic planning.
+          </p>
+          <ul class="module-features">
+            <li>90-day tactical forecasting</li>
+            <li>6-month strategic projections</li>
+            <li>Working capital optimization</li>
+            <li>Cash conversion cycle analysis</li>
+          </ul>
+          <div class="module-stats">
+            <div class="module-stats-title">Key Metrics</div>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-value" id="tm-wc-oppty">$—</div>
+                <div class="stat-label">WC Opportunity</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="tm-ccc-days">—</div>
+                <div class="stat-label">CCC Days</div>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Product Intelligence Section (kept) -->
+    <section id="product-intelligence-section" class="phase-section product-intelligence">
+      <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">← Back to Overview</a>
+
+      <div class="phase-header">
+        <span class="phase-badge product">PRODUCT INTELLIGENCE</span>
+        <h1 class="phase-title">📊 Product Intelligence Analytics</h1>
+      </div>
+
+      <p style="font-size:1.1rem; color:var(--text-light); margin-bottom:2rem;">
+        Upload NetSuite exports to analyze profitability, inventory health, and sales trends by SKU and customer.
+      </p>
+
+      <!-- Upload grid (kept from your file) -->
+      <div class="upload-grid">
+        <div class="upload-card">
+          <div class="status-indicator" id="cost-status"></div>
+          <span class="upload-icon">📁</span>
+          <div class="upload-title">Item Cost CSV</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Inventory → Item Cost<br />
+            <strong>Required:</strong> Item, Avg Item Rate, Avg Est. Unit Cost, Quantity
+          </div>
+          <input type="file" id="cost-upload" class="file-input" accept=".csv" />
+        </div>
+
+        <div class="upload-card">
+          <div class="status-indicator" id="sales-status"></div>
+          <span class="upload-icon">📊</span>
+          <div class="upload-title">Sales by Item Summary (XLS)</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Sales → Sales by Item Summary<br />
+            <strong>Required:</strong> Item, Description, Qty Sold, Total Revenue
+          </div>
+          <input type="file" id="sales-upload" class="file-input" accept=".xls,.xlsx" />
+        </div>
+
+        <div class="upload-card">
+          <div class="status-indicator" id="customer-status"></div>
+          <span class="upload-icon">👥</span>
+          <div class="upload-title">Sales by Customer Detail (XLS)</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Sales → Sales by Customer Detail<br />
+            <strong>Required:</strong> Customer, Transaction Type, Date, Total Revenue
+          </div>
+          <input type="file" id="customer-upload" class="file-input" accept=".xls,.xlsx" />
+        </div>
+
+        <div class="upload-card">
+          <div class="status-indicator" id="po-status"></div>
+          <span class="upload-icon">🏭</span>
+          <div class="upload-title">Purchase Order Details (XLS)</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Purchasing → Purchase Order Detail<br />
+            <strong>Required:</strong> Vendor, Item, Date, Total Cost, Quantity
+          </div>
+          <input type="file" id="po-upload" class="file-input" accept=".xls,.xlsx" />
+        </div>
+      </div>
+
+      <!-- Results Panel (kept) -->
+      <div id="product-results-panel" class="results-panel" style="display:none;">
+        <h3 style="margin-top:0; color:var(--text-dark);">📊 Product Intelligence Results</h3>
+        <div id="product-results-content" class="results-content"></div>
+      </div>
+
+      <!-- Charts (kept) -->
+      <div class="dashboard-grid">
+        <div class="chart-container">
+          <h3 class="chart-title"><span class="chart-icon">📈</span> Profit vs Loss Analysis</h3>
+          <canvas id="product-profit-chart" width="400" height="300"></canvas>
+        </div>
+
+        <div class="chart-container">
+          <h3 class="chart-title"><span class="chart-icon">🎯</span> Product Performance</h3>
+          <canvas id="product-performance-chart" width="400" height="300"></canvas>
+        </div>
+      </div>
+
+      <!-- Actions (kept) -->
+      <div class="action-buttons">
+        <button class="btn btn-primary" onclick="ProductIntelligence.generateAnalysis()">📊 Generate Analysis</button>
+        <button class="btn btn-secondary" onclick="ProductIntelligence.optimizePortfolio()">🎯 Optimize Portfolio</button>
+        <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()">📉 Export Losing Items</button>
+        <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()">📦 Export Stockout Risks</button>
+        <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()">🏭 Inventory Optimization</button>
+        <button class="btn btn-success" onclick="ProductIntelligence.exportAllItems()">📄 Complete Analysis</button>
+        <button class="btn btn-primary" onclick="ProductIntelligence.exportReport()" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe)">📋 Executive Summary</button>
+      </div>
+
+      <!-- Quick Export (kept) -->
+      <div style="background:linear-gradient(135deg,#f8f9fa,#e9ecef); border-radius:15px; padding:1.5rem; margin:2rem 0; border:2px solid #e1e8ed; box-shadow:0 4px 15px rgba(0,0,0,.1);">
+        <h4 style="margin-top:0; color:#2c3e50; display:flex; align-items:center;">
+          <span style="margin-right:.5rem;">⚡</span> Quick Export Actions
+        </h4>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem;">
+          <div style="text-align:center; padding:1rem; background:white; border-radius:10px; border:1px solid #dee2e6;">
+            <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()" style="width:100%; margin-bottom:.5rem;">📉 Losing Items</button>
+            <small style="color:#6c757d; font-size:.85rem; line-height:1.4;">Items requiring price review or discontinuation</small>
+          </div>
+          <div style="text-align:center; padding:1rem; background:white; border-radius:10px; border:1px solid #dee2e6;">
+            <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()" style="width:100%; margin-bottom:.5rem;">📦 Stockout Risks</button>
+            <small style="color:#6c757d; font-size:.85rem; line-height:1.4;">Items running low on stock needing immediate orders</small>
+          </div>
+          <div style="text-align:center; padding:1rem; background:white; border-radius:10px; border:1px solid #dee2e6;">
+            <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()" style="width:100%; margin-bottom:.5rem;">🏭 Inventory Optimization</button>
+            <small style="color:#6c757d; font-size:.85rem; line-height:1.4;">Overstocked & dead stock items to liquidate</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Treasury Management Section (kept) -->
+    <section id="treasury-management-section" class="phase-section treasury-management">
+      <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">← Back to Overview</a>
+
+      <div class="phase-header">
+        <span class="phase-badge treasury">TREASURY MANAGEMENT</span>
+        <h1 class="phase-title">💰 Advanced Cash Flow Intelligence</h1>
+      </div>
+
+      <p style="font-size:1.1rem; color:var(--text-light); margin-bottom:2rem;">
+        Enterprise-grade cash flow forecasting with predictive analytics and working capital optimization.
+      </p>
+
+      <!-- Upload grid (kept) -->
+      <div class="upload-grid">
+        <div class="upload-card">
+          <div class="status-indicator" id="gl-status"></div>
+          <span class="upload-icon">📋</span>
+          <div class="upload-title">General Ledger Data</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Financial → General Ledger<br />
+            <strong>Required:</strong> Account, Account Name, Balance, Date
+          </div>
+          <input type="file" id="gl-upload" class="file-input" accept=".csv,.xls,.xlsx" />
+        </div>
+
+        <div class="upload-card">
+          <div class="status-indicator" id="ar-status"></div>
+          <span class="upload-icon">💳</span>
+          <div class="upload-title">Accounts Receivable</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Financial → A/R Aging Detail<br />
+            <strong>Required:</strong> Customer, Invoice Date, Due Date, Amount
+          </div>
+          <input type="file" id="ar-upload" class="file-input" accept=".csv,.xls,.xlsx" />
+        </div>
+
+        <div class="upload-card">
+          <div class="status-indicator" id="ap-status"></div>
+          <span class="upload-icon">💰</span>
+          <div class="upload-title">Accounts Payable</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Financial → A/P Aging Detail<br />
+            <strong>Required:</strong> Vendor, Bill Date, Due Date, Amount
+          </div>
+          <input type="file" id="ap-upload" class="file-input" accept=".csv,.xls,.xlsx" />
+        </div>
+
+        <div class="upload-card">
+          <div class="status-indicator" id="cashflow-status"></div>
+          <span class="upload-icon">📊</span>
+          <div class="upload-title">Historical Cash Flow</div>
+          <div class="upload-description">
+            <strong>NetSuite Path:</strong> Reports → Financial → Cash Flow Statement<br />
+            <strong>Required:</strong> Period, Operating Activities, Investing, Financing
+          </div>
+          <input type="file" id="cashflow-upload" class="file-input" accept=".csv,.xls,.xlsx" />
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="status-panel">
+        <h3 style="margin-top:0; color:var(--text-dark);">📊 Processing Status & Insights</h3>
+        <div id="status-messages" class="status-messages">
+          <div class="status-message ready">
+            <span class="status-icon">✅</span>
+            <span class="status-text">Treasury Management: Ready</span>
+            <span class="status-time" id="init-time"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="treasury-results-panel" class="results-panel" style="display:none;">
+        <h3 style="margin-top:0; color:var(--text-dark);">💰 Treasury Management Results</h3>
+        <div id="treasury-results-content" class="results-content"></div>
+      </div>
+
+      <!-- Charts -->
+      <div class="dashboard-grid">
+        <div class="chart-container">
+          <h3 class="chart-title"><span class="chart-icon">📈</span> 90-Day Cash Flow Forecast</h3>
+          <canvas id="forecast-90-chart" width="400" height="300"></canvas>
+        </div>
+
+        <div class="chart-container">
+          <h3 class="chart-title"><span class="chart-icon">📊</span> 6-Month Strategic Projection</h3>
+          <canvas id="forecast-6m-chart" width="400" height="300"></canvas>
+        </div>
+
+        <div class="chart-container">
+          <h3 class="chart-title"><span class="chart-icon">🎯</span> Working Capital Optimization</h3>
+          <canvas id="working-capital-chart" width="400" height="300"></canvas>
+        </div>
+
+        <div class="chart-container">
+          <h3 class="chart-title"><span class="chart-icon">🎲</span> Scenario Analysis</h3>
+          <canvas id="scenario-chart" width="400" height="300"></canvas>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="action-buttons">
+        <button class="btn btn-primary" onclick="TreasuryManagement.generateForecast()">📊 Generate Forecast</button>
+        <button class="btn btn-secondary" onclick="TreasuryManagement.runScenarioAnalysis()">🎲 Run Scenario Analysis</button>
+        <button class="btn btn-success" onclick="TreasuryManagement.optimizeWorkingCapital()">⚙️ Optimize Working Capital</button>
+        <button class="btn btn-warning" onclick="TreasuryManagement.generateExecutiveReport()">📄 Executive Report</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Scripts -->
+  <script src="web/metrics.js"></script>
+  <script src="js/dashboard.js"></script>
 </body>
 </html>
