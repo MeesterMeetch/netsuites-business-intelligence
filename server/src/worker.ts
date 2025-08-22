@@ -1,338 +1,473 @@
+// server/src/worker.ts
 import { Pool } from "@neondatabase/serverless";
 
+/*───────────────────────────────────────────────────────────────────────────*
+  Types
+*───────────────────────────────────────────────────────────────────────────*/
 type Env = {
   DATABASE_URL: string;
-  SHOPIFY_STORES: string; // JSON array: [{ domain, token }]
-  PAGE_SIZE?: string;
-  MAX_PAGES_PER_RUN?: string;
+  SHOPIFY_STORES?: string;      // JSON array: [{domain, token}, ...]
+  PAGE_SIZE?: string;           // default "100" (max 250)
+  MAX_PAGES_PER_RUN?: string;   // default "10"
 };
 
-const SHOPIFY_API_VERSION = "2024-10";
+/*───────────────────────────────────────────────────────────────────────────*
+  Helpers (time, http, store parsing)
+*───────────────────────────────────────────────────────────────────────────*/
+function log(...args: any[]) {
+  // Mountain Time (Denver) for wrangler tail
+  const ts = new Date().toLocaleString("en-US", {
+    timeZone: "America/Denver",
+    hour12: false,
+  });
+  console.log(ts, ...args);
+}
 
+function json(body: any, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    },
+  });
+}
+
+function sanitizeDomain(d: string) {
+  if (!d) return "";
+  d = d.trim().replace(/^https?:\/\//i, "");
+  d = d.replace(/\/.*/, ""); // strip path/query
+  d = d.replace(/^\"+|\"+$/g, "").replace(/^'+|'+$/g, ""); // strip quotes
+  return d;
+}
+
+function isValidDomain(d: string) {
+  return /^[a-z0-9.-]+$/i.test(d) && d.includes(".");
+}
+
+function parseStores(raw?: string) {
+  if (!raw) return [] as Array<{ domain: string; token: string }>;
+  try {
+    const v = JSON.parse(raw);
+    const arr = Array.isArray(v) ? v : (typeof v === "string" ? JSON.parse(v) : []);
+    return arr.map((s: any) => ({
+      domain: sanitizeDomain(String(s.domain || "")),
+      token: String(s.token || ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/*───────────────────────────────────────────────────────────────────────────*
+  Database helpers
+*───────────────────────────────────────────────────────────────────────────*/
+async function getClient(env: Env) {
+  if (!env.DATABASE_URL || !env.DATABASE_URL.startsWith("postgresql")) {
+    throw new Error("Missing or invalid DATABASE_URL secret (wrangler secret put DATABASE_URL).");
+  }
+  const pool = new Pool({ connectionString: env.DATABASE_URL });
+  return await pool.connect();
+}
+
+async function ensureSyncState(client: any) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS sync_state (
+      key text PRIMARY KEY,
+      value jsonb,
+      channel_id int,
+      updated_at timestamptz DEFAULT now()
+    )
+  `);
+}
+
+async function getStagingColumns(client: any): Promise<Set<string>> {
+  const r = await client.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='staging_raw'
+  `);
+  return new Set(r.rows.map((x: any) => x.column_name));
+}
+
+async function getOrCreateShopifyChannelId(client: any): Promise<number> {
+  try {
+    await client.query(`INSERT INTO channels(name) VALUES ('Shopify') ON CONFLICT (name) DO NOTHING`);
+  } catch {}
+  const r = await client.query(`SELECT id FROM channels WHERE name='Shopify' ORDER BY id LIMIT 1`);
+  if (!r.rows?.[0]?.id) {
+    const ins = await client.query(`INSERT INTO channels(name) VALUES ('Shopify') RETURNING id`);
+    return Number(ins.rows[0].id);
+  }
+  return Number(r.rows[0].id);
+}
+
+/*───────────────────────────────────────────────────────────────────────────*
+  Cursor + schedule index (sync_state)
+*───────────────────────────────────────────────────────────────────────────*/
+function cursorKey(domain: string) {
+  return `shopify:cursor:${domain}`;
+}
+async function getCursor(client: any, domain: string): Promise<string | null> {
+  await ensureSyncState(client);
+  const r = await client.query(`SELECT value FROM sync_state WHERE key=$1 LIMIT 1`, [cursorKey(domain)]);
+  return r.rows?.[0]?.value?.page_info ?? null;
+}
+async function setCursor(client: any, domain: string, pageInfo: string | null) {
+  await ensureSyncState(client);
+  if (!pageInfo) {
+    await client.query(`DELETE FROM sync_state WHERE key=$1`, [cursorKey(domain)]);
+    return;
+  }
+  await client.query(
+    `INSERT INTO sync_state(key, value, updated_at)
+     VALUES ($1, jsonb_build_object('page_info', $2::text), now())
+     ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, updated_at = now()`,
+    [cursorKey(domain), pageInfo]
+  );
+}
+
+async function getScheduleIndex(client: any): Promise<number> {
+  await ensureSyncState(client);
+  const r = await client.query(`SELECT value FROM sync_state WHERE key='shopify:schedule_idx' LIMIT 1`);
+  const v = r.rows?.[0]?.value;
+  return v && typeof v.idx !== "undefined" ? Number(v.idx) || 0 : 0;
+}
+async function setScheduleIndex(client: any, idx: number) {
+  await ensureSyncState(client);
+  await client.query(
+    `INSERT INTO sync_state(key, value, updated_at)
+     VALUES ('shopify:schedule_idx', jsonb_build_object('idx', $1::int), now())
+     ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, updated_at = now()`,
+    [idx]
+  );
+}
+
+/*───────────────────────────────────────────────────────────────────────────*
+  Router: fetch + debug endpoints
+*───────────────────────────────────────────────────────────────────────────*/
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env) {
+    if (req.method === "OPTIONS") return json({ ok: true });
     const url = new URL(req.url);
-    try {
-      if (url.pathname === "/ingest/shopify/run" && req.method === "POST") {
-        const result = await runAllStores(env);
-        return json({ ok: true, ...result });
-      }
 
-      if (url.pathname === "/api/metrics/aov" && req.method === "GET") {
-        const params = Object.fromEntries(url.searchParams.entries());
-        const data = await getAOV(env, params.range ?? "30d", params.shop ?? "all");
-        return json({ ok: true, range: params.range ?? "30d", shop: params.shop ?? "all", ...data });
-      }
-
-      if (url.pathname === "/api/metrics/orders_trend" && req.method === "GET") {
-        const params = Object.fromEntries(url.searchParams.entries());
-        const data = await getOrdersTrend(env, params.range ?? "30d", params.shop ?? "all");
-        return json({ ok: true, ...data });
-      }
-
-      if (url.pathname === "/api/metrics/returning_rate" && req.method === "GET") {
-        const params = Object.fromEntries(url.searchParams.entries());
-        const data = await getReturningRate(env, params.range ?? "90d", params.shop ?? "all");
-        return json({ ok: true, ...data });
-      }
-
-      return new Response("OK", { status: 200 });
-    } catch (e: any) {
-      return json({ ok: false, error: e?.message ?? String(e) }, 500);
+    // List configured shops (from secret)
+    if (url.pathname === "/api/shops" && req.method === "GET") {
+      const stores = parseStores(env.SHOPIFY_STORES);
+      const shops = stores.map((s, i) => ({
+        id: i + 1,
+        handle: s.domain.split(".")[0],
+        domain: s.domain,
+      }));
+      return shops.length ? json({ ok: true, shops }) : json({ ok: false, error: "No stores configured" });
     }
+
+    // Preview raw vs sanitized domains
+    if (url.pathname === "/api/debug/stores" && req.method === "GET") {
+      const stores = parseStores(env.SHOPIFY_STORES);
+      const preview = stores.map((s) => ({
+        raw: s.domain,
+        sanitized: sanitizeDomain(s.domain),
+        valid: isValidDomain(sanitizeDomain(s.domain)),
+      }));
+      return json({ ok: true, preview });
+    }
+
+    // DB ping
+    if (url.pathname === "/api/debug/db" && req.method === "GET") {
+      try {
+        const client = await getClient(env);
+        const r = await client.query("select now()");
+        await client.release();
+        return json({ ok: true, now: r?.rows?.[0]?.now ?? null });
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message ?? String(e) }, 500);
+      }
+    }
+
+    // Inspect cursors
+    if (url.pathname === "/api/debug/cursor" && req.method === "GET") {
+      const client = await getClient(env);
+      try {
+        const out: Record<string, string | null> = {};
+        for (const s of parseStores(env.SHOPIFY_STORES)) out[s.domain] = await getCursor(client, s.domain);
+        return json({ ok: true, cursors: out });
+      } finally {
+        await client.release();
+      }
+    }
+    // Clear a cursor
+    if (url.pathname === "/api/debug/reset" && req.method === "POST") {
+      const store = sanitizeDomain(url.searchParams.get("store") || "");
+      if (!store) return json({ ok: false, error: "store param required" }, 400);
+      const client = await getClient(env);
+      try {
+        await setCursor(client, store, null);
+        log("cursor:cleared", store);
+        return json({ ok: true, cleared: store });
+      } finally {
+        await client.release();
+      }
+    }
+
+    // /api/debug/health — snapshot with per-store totals
+    if (url.pathname === "/api/debug/health" && req.method === "GET") {
+      try {
+        const stores = parseStores(env.SHOPIFY_STORES);
+        const client = await getClient(env);
+        try {
+          const mtNow = new Date().toLocaleString("en-US", { timeZone: "America/Denver", hour12: false });
+          const idx = await getScheduleIndex(client);
+
+          const cursors: Record<string, string | null> = {};
+          for (const s of stores) cursors[s.domain] = await getCursor(client, s.domain);
+
+          // global totals
+          const r1 = await client.query(`select count(*)::int as orders from orders`);
+          const r2 = await client.query(`select count(*)::int as items from order_items`);
+          const r3 = await client.query(`select max(placed_at) as last_order_at from orders`);
+
+          // per-store totals (orders)
+          const rsOrders = await client.query(`
+            select coalesce(shop_domain,'(unknown)') as shop_domain,
+                   count(*)::int as orders,
+                   min(placed_at) as first,
+                   max(placed_at) as last
+            from orders
+            group by 1
+            order by 2 desc
+          `);
+
+          // per-store totals (items)
+          const rsItems = await client.query(`
+            select coalesce(o.shop_domain,'(unknown)') as shop_domain,
+                   count(*)::int as items
+            from order_items oi
+            join orders o on o.id = oi.order_id
+            group by 1
+            order by 2 desc
+          `);
+
+          const itemsByStore: Record<string, number> = {};
+          for (const row of rsItems.rows) itemsByStore[row.shop_domain] = row.items;
+
+          const per_store = rsOrders.rows.map((row: any) => ({
+            shop_domain: row.shop_domain,
+            orders: row.orders,
+            items: itemsByStore[row.shop_domain] ?? 0,
+            first_order_at: row.first,
+            last_order_at: row.last
+          }));
+
+          return json({
+            ok: true,
+            now_mt: mtNow,
+            schedule_index: idx,
+            stores: stores.map(s => s.domain),
+            cursors,
+            totals: {
+              orders: r1.rows?.[0]?.orders ?? 0,
+              items:  r2.rows?.[0]?.items ?? 0,
+              last_order_at: r3.rows?.[0]?.last_order_at ?? null
+            },
+            per_store
+          });
+        } finally {
+          await client.release();
+        }
+      } catch (e: any) {
+        return json({ ok: false, error: e?.message ?? String(e) }, 500);
+      }
+    }
+
+    // Ingest trigger
+    if (url.pathname === "/ingest/shopify/run" && req.method === "POST") {
+      try {
+        const res = await runShopifyIngest(env, url.searchParams);
+        return json({ ok: true, ...res });
+      } catch (e: any) {
+        log("ingest:error", e?.message ?? String(e));
+        return json({ ok: false, error: e?.message ?? String(e) }, 500);
+      }
+    }
+
+    return new Response("OK", { status: 200 });
+  },
+
+  // Cron: round‑robin one store/run (with logs)
+  async scheduled(_controller: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    log("cron:start");
+    ctx.waitUntil(
+      runShopifyIngestRoundRobin(env)
+        .then((res) => log("cron:done", res))
+        .catch((e) => log("cron:error", e?.message || String(e)))
+    );
   },
 };
 
-async function runAllStores(env: Env) {
-  const stores: Array<{ domain: string; token: string }> = JSON.parse(await getSecret(env, "SHOPIFY_STORES"));
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
-  const client = await pool.connect();
-  const results: any[] = [];
+/*───────────────────────────────────────────────────────────────────────────*
+  Round‑robin cron
+*───────────────────────────────────────────────────────────────────────────*/
+async function runShopifyIngestRoundRobin(env: Env) {
+  const stores = parseStores(env.SHOPIFY_STORES);
+  if (!stores.length) throw new Error("No stores configured");
+
+  const client = await getClient(env);
   try {
-    await client.query("BEGIN");
+    const idx = await getScheduleIndex(client);
+    const nextIdx = idx % stores.length;
+    const store = stores[nextIdx];
+    log("cron:store", store.domain, { nextIdx, totalStores: stores.length });
 
-    const channel = await one(client, `SELECT id FROM channels WHERE name = 'shopify'`);
-    if (!channel) throw new Error("Channel 'shopify' missing. Run db/schema.sql first.");
-    const channelId = channel.id as number;
-
-    for (const store of stores) {
-      const shopId = await ensureShop(client, channelId, store);
-      const r = await ingestOneStore(env, client, channelId, shopId, store);
-      results.push({ domain: store.domain, ...r });
-    }
-
-    await client.query("COMMIT");
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
+    const result = await runShopifyIngest(env, new URLSearchParams({ store: store.domain }));
+    await setScheduleIndex(client, nextIdx + 1);
+    return { store: store.domain, result };
   } finally {
     await client.release();
   }
-
-  return { results };
 }
 
-async function ingestOneStore(env: Env, client: any, channelId: number, shopId: number, store: { domain: string; token: string }) {
-  const PAGE_SIZE = Number(env.PAGE_SIZE ?? 100);
-  const MAX_PAGES = Number(env.MAX_PAGES_PER_RUN ?? 10);
-  let updatedAtMin = await getState(client, channelId, `orders_updated_at::${store.domain}`);
-  let cursor: string | null = null;
-  let pages = 0, totalOrders = 0;
-  let res: any = null;
+/*───────────────────────────────────────────────────────────────────────────*
+  Ingest: supports ?store=domain, ?days=N, ?reset=true
+*───────────────────────────────────────────────────────────────────────────*/
+async function runShopifyIngest(env: Env, params: URLSearchParams) {
+  const stores = parseStores(env.SHOPIFY_STORES);
+  if (!stores.length) throw new Error("No stores configured");
 
-  do {
-    res = await shopifyQuery(store, {
-      pageSize: PAGE_SIZE,
-      cursor,
-      updatedAtMin: updatedAtMin ?? null,
-    });
+  const client = await getClient(env);
+  const limit = Math.min(Math.max(Number(env.PAGE_SIZE || 100), 1), 250);
+  const maxPages = Math.min(Math.max(Number(env.MAX_PAGES_PER_RUN || 10), 1), 50);
+  const days = Math.min(Math.max(Number(params.get("days") || 90), 1), 365);
+  const reset = (params.get("reset") || "").toLowerCase() === "true";
 
-    const edges = res?.data?.orders?.edges ?? [];
-    if (!edges.length) break;
+  const stagingCols = await getStagingColumns(client);
+  const channelId = await getOrCreateShopifyChannelId(client);
 
-    for (const edge of edges) {
-      cursor = edge.cursor;
-      const o = edge.node;
+  const targetDomainParam = params.get("store") || params.get("domain");
+  const target = targetDomainParam ? sanitizeDomain(String(targetDomainParam)) : null;
+  const list = target ? stores.filter((s) => sanitizeDomain(s.domain) === target) : stores;
 
-      await client.query(
-        `INSERT INTO staging_raw (channel_id, shop_id, external_id, payload) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
-        [channelId, shopId, o.id, o]
-      );
+  const summary: Record<string, { pages: number; ordersIngested: number }> = {};
 
-      let customerId: string | null = null;
-      if (o.customer) {
-        const c = o.customer;
-        const row = await one(
-          client,
-          `INSERT INTO customers (channel_id, shop_id, channel_customer_id, email, first_name, last_name, first_seen, last_seen)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-           ON CONFLICT (channel_id, shop_id, channel_customer_id)
-           DO UPDATE SET email = EXCLUDED.email, first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, last_seen = GREATEST(customers.last_seen, EXCLUDED.last_seen)
-           RETURNING id`,
-          [channelId, shopId, c.id, c.email, c.firstName, c.lastName, c.createdAt ?? o.processedAt, o.updatedAt]
-        );
-        customerId = row.id;
-      }
-
-      const subtotal = num(o.subtotalPriceSet?.shopMoney?.amount);
-      const shipping = num(o.totalShippingPriceSet?.shopMoney?.amount);
-      const tax = num(o.totalTaxSet?.shopMoney?.amount);
-      const discounts = num(o.totalDiscountsSet?.shopMoney?.amount);
-      const total = num(o.totalPriceSet?.shopMoney?.amount);
-
-      const ord = await one(
-        client,
-        `INSERT INTO orders (channel_id, shop_id, external_id, order_number, name, placed_at, currency, subtotal, shipping, tax, discounts, fees, total, financial_status, fulfillment_status, customer_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-         ON CONFLICT (channel_id, shop_id, external_id)
-         DO UPDATE SET order_number=EXCLUDED.order_number, name=EXCLUDED.name, placed_at=EXCLUDED.placed_at, currency=EXCLUDED.currency,
-           subtotal=EXCLUDED.subtotal, shipping=EXCLUDED.shipping, tax=EXCLUDED.tax, discounts=EXCLUDED.discounts, total=EXCLUDED.total,
-           financial_status=EXCLUDED.financial_status, fulfillment_status=EXCLUDED.fulfillment_status, customer_id=COALESCE(EXCLUDED.customer_id, orders.customer_id)
-         RETURNING id`,
-        [channelId, shopId, o.id, String(o.orderNumber ?? ""), o.name, o.processedAt, o.currencyCode, subtotal, shipping, tax, discounts, 0, total, o.displayFinancialStatus, o.displayFulfillmentStatus, customerId]
-      );
-
-      await client.query(`DELETE FROM order_items WHERE order_id = $1`, [ord.id]);
-      for (const e of (o.lineItems?.edges ?? [])) {
-        const it = e.node;
-        await client.query(
-          `INSERT INTO order_items (order_id, sku, external_product_id, title, qty, unit_price, discount, tax, fees, landed_cost_alloc)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [
-            ord.id,
-            it.sku,
-            it.variant?.id ?? null,
-            it.name,
-            it.quantity,
-            divide(num(it.originalTotalSet?.shopMoney?.amount), it.quantity),
-            diff(num(it.originalTotalSet?.shopMoney?.amount), num(it.discountedTotalSet?.shopMoney?.amount)),
-            num(it.taxLines?.[0]?.priceSet?.shopMoney?.amount),
-            0,
-            null,
-          ]
-        );
-      }
-
-      totalOrders++;
-      updatedAtMin = o.updatedAt; // advance cursor
-    }
-
-    pages++;
-  } while (pages < MAX_PAGES && hasNext(res));
-
-  await setState(client, channelId, `orders_updated_at::${store.domain}`, updatedAtMin ?? new Date().toISOString());
-
-  return { pages, totalOrders, nextUpdatedAtMin: updatedAtMin };
-}
-
-async function getAOV(env: Env, range: string, shop: string) {
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
-  const client = await pool.connect();
   try {
-    const days = parseRangeDays(range);
-    const params: any[] = [days];
-    let where = `placed_at >= now() - ($1 || ' days')::interval`;
-    if (shop !== "all") {
-      where += ` AND shop_id = $2`;
-      params.push(Number(shop));
-    }
-    const row = await one(
-      client,
-      `SELECT COALESCE(SUM(total),0) AS revenue, COALESCE(COUNT(DISTINCT id),0) AS orders FROM orders WHERE ${where}`,
-      params
+    // minimal staging (first run safety)
+    await client.query(
+      "CREATE EXTENSION IF NOT EXISTS pgcrypto; " +
+        "CREATE TABLE IF NOT EXISTS staging_raw (" +
+        " id UUID DEFAULT gen_random_uuid() PRIMARY KEY," +
+        " payload JSONB NOT NULL," +
+        " received_at TIMESTAMPTZ DEFAULT now()," +
+        " domain text" +
+        ");"
     );
-    const aov = Number(row.orders) ? Number(row.revenue) / Number(row.orders) : 0;
-    return { revenue: Number(row.revenue), orders: Number(row.orders), aov };
+
+    for (const s of list) {
+      const domain = sanitizeDomain(s.domain);
+      if (!isValidDomain(domain)) throw new Error(`Invalid shop domain: "${s.domain}" -> "${domain}"`);
+      const token = s.token;
+      if (!/^shpat_/.test(token || "")) throw new Error(`Missing/invalid Admin API token for ${domain}`);
+
+      if (reset) await setCursor(client, domain, null);
+
+      let pages = 0;
+      let total = 0;
+      let nextPage: string | null = await getCursor(client, domain); // resume if present
+      const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+
+      log("ingest:start", { domain, days, resumeFromCursor: !!nextPage });
+
+      while (pages < maxPages) {
+        const qp = new URLSearchParams();
+        qp.set("limit", String(limit));
+        if (!nextPage) {
+          qp.set("status", "any");
+          qp.set("created_at_min", since);
+        } else {
+          qp.set("page_info", nextPage);
+        }
+
+        const urlStr = `https://${domain}/admin/api/2024-07/orders.json?${qp.toString()}`;
+        const resp = await fetch(urlStr, {
+          headers: {
+            "X-Shopify-Access-Token": token,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error(`Shopify ${domain} ${resp.status}: ${t}`);
+        }
+
+        const data: any = await resp.json();
+        const orders = Array.isArray(data.orders) ? data.orders : [];
+
+        if (orders.length) {
+          // build insert dynamically if optional columns exist
+          const cols = ["payload"];
+          if (stagingCols.has("channel_id")) cols.push("channel_id");
+          if (stagingCols.has("source")) cols.push("source");
+          if (stagingCols.has("kind")) cols.push("kind");
+          if (stagingCols.has("domain")) cols.push("domain");
+
+          const perRowVals: any[][] = [];
+          for (const o of orders) {
+            const row: any[] = [JSON.stringify(o)];
+            if (stagingCols.has("channel_id")) row.push(channelId);
+            if (stagingCols.has("source")) row.push("shopify");
+            if (stagingCols.has("kind")) row.push("order");
+            if (stagingCols.has("domain")) row.push(domain);
+            perRowVals.push(row);
+          }
+
+          const placeholders: string[] = [];
+          const flat: any[] = [];
+          let offset = 0;
+          for (const r of perRowVals) {
+            placeholders.push("(" + r.map((_, i) => "$" + (offset + i + 1)).join(",") + ")");
+            flat.push(...r);
+            offset += r.length;
+          }
+
+          const sql = `INSERT INTO staging_raw (${cols.join(",")}) VALUES ${placeholders.join(",")}`;
+          await client.query(sql, flat);
+        }
+
+        total += orders.length;
+        pages++;
+
+        // Link header -> page_info
+        const link = resp.headers.get("link") || resp.headers.get("Link");
+        let newCursor: string | null = null;
+        if (link) {
+          const m = link.match(/<[^>]*[?&]page_info=([^&>]+)[^>]*>;\s*rel="next"/i);
+          if (m) newCursor = m[1];
+        }
+
+        await setCursor(client, domain, newCursor);
+        log("ingest:page", { domain, page: pages, orders: orders.length, hasNext: !!newCursor });
+        nextPage = newCursor;
+
+        if (!nextPage || orders.length === 0) break;
+      }
+
+      summary[domain] = { pages, ordersIngested: total };
+      log("ingest:done", domain, { pages, total });
+    }
   } finally {
     await client.release();
   }
+
+  log("ingest:summary", {
+    limit,
+    maxPages,
+    days,
+    stores: list.map((s) => s.domain),
+    summary,
+  });
+
+  return { summary };
 }
-
-async function getOrdersTrend(env: Env, range: string, shop: string) {
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
-  const client = await pool.connect();
-  try {
-    const days = parseRangeDays(range);
-    const params: any[] = [days];
-    let where = `placed_at >= now() - ($1 || ' days')::interval`;
-    if (shop !== "all") { where += ` AND shop_id = $2`; params.push(Number(shop)); }
-    const rows = (await client.query(
-      `SELECT date_trunc('day', placed_at) AS d, COUNT(DISTINCT id) AS orders, SUM(total) AS revenue
-       FROM orders WHERE ${where}
-       GROUP BY 1 ORDER BY 1`, params
-    )).rows;
-    return { range, shop, points: rows.map((r:any) => ({ date: r.d, orders: Number(r.orders), revenue: Number(r.revenue) })) };
-  } finally { await client.release(); }
-}
-
-async function getReturningRate(env: Env, range: string, shop: string) {
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
-  const client = await pool.connect();
-  try {
-    const days = parseRangeDays(range);
-    const params: any[] = [days];
-    let where = `o.placed_at >= now() - ($1 || ' days')::interval`;
-    if (shop !== "all") { where += ` AND o.shop_id = $2`; params.push(Number(shop)); }
-    const sql = `
-      WITH base AS (
-        SELECT o.id, o.customer_id
-        FROM orders o
-        WHERE ${where}
-      ), counts AS (
-        SELECT c.id AS customer_id, COUNT(o.id) AS orders_in_window
-        FROM customers c
-        JOIN base o ON o.customer_id = c.id
-        GROUP BY 1
-      )
-      SELECT
-        COALESCE(SUM(CASE WHEN orders_in_window > 1 THEN 1 ELSE 0 END),0) AS returning_customers,
-        COALESCE(COUNT(*),0) AS unique_customers
-      FROM counts`;
-    const row = (await client.query(sql, params)).rows[0] || { returning_customers: 0, unique_customers: 0 };
-    const returning = Number(row.returning_customers);
-    const unique = Number(row.unique_customers);
-    const rate = unique ? returning / unique : 0;
-    return { range, shop, returning_customers: returning, unique_customers: unique, returning_rate: rate };
-  } finally { await client.release(); }
-}
-
-function parseRangeDays(r: string): number {
-  const m = String(r).match(/(\d+)d/);
-  return m ? Number(m[1]) : 30;
-}
-
-function hasNext(res: any): boolean {
-  return Boolean(res?.data?.orders?.pageInfo?.hasNextPage);
-}
-
-async function ensureShop(client: any, channelId: number, store: { domain: string }) {
-  const handle = store.domain.split(".")[0];
-  const row = await one(
-    client,
-    `INSERT INTO shops (channel_id, handle, domain) VALUES ($1,$2,$3)
-     ON CONFLICT (channel_id, domain) DO UPDATE SET handle = EXCLUDED.handle
-     RETURNING id`,
-    [channelId, handle, store.domain]
-  );
-  return row.id as number;
-}
-
-async function getSecret(env: any, key: string) {
-  const v = (env as any)[key];
-  if (!v) throw new Error(`Missing secret: ${key}`);
-  return v;
-}
-
-async function getState(client: any, channelId: number, key: string) {
-  const r = await one(client, `SELECT value FROM sync_state WHERE channel_id=$1 AND key=$2`, [channelId, key]);
-  return r?.value ?? null;
-}
-
-async function setState(client: any, channelId: number, key: string, value: string) {
-  await one(
-    client,
-    `INSERT INTO sync_state (channel_id, key, value) VALUES ($1,$2,$3)
-     ON CONFLICT (channel_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
-     RETURNING key`,
-    [channelId, key, value]
-  );
-}
-
-async function one(client: any, sql: string, params?: any[]) {
-  const res = await client.query(sql, params ?? []);
-  return res.rows?.[0] ?? null;
-}
-
-function num(v: any): number { const n = Number(v); return Number.isFinite(n) ? n : 0; }
-function divide(a: number, b: number): number { return b ? Math.round((a / b) * 100) / 100 : 0; }
-function diff(a: number, b: number): number { return Math.round((a - b) * 100) / 100; }
-
-async function shopifyQuery(store: { domain: string; token: string }, vars: any) {
-  const endpoint = `https://${store.domain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
-  const body = JSON.stringify({ query: SHOPIFY_QUERY, variables: { pageSize: vars.pageSize, cursor: vars.cursor, updatedAtMin: vars.updatedAtMin ?? null } });
-  const res = await fetch(endpoint, { method: "POST", headers: { "X-Shopify-Access-Token": store.token, "Content-Type": "application/json" }, body });
-  if (!res.ok) throw new Error(`Shopify ${store.domain} HTTP ${res.status}`);
-  return await res.json();
-}
-
-const SHOPIFY_QUERY = `
-query OrdersSince($pageSize: Int!, $cursor: String, $updatedAtMin: DateTime) {
-  orders(first: $pageSize, after: $cursor, query: $updatedAtMin ? "updated_at:>=$updatedAtMin" : null, sortKey: UPDATED_AT) {
-    edges {
-      cursor
-      node {
-        id
-        name
-        orderNumber
-        processedAt
-        updatedAt
-        currencyCode
-        displayFinancialStatus
-        displayFulfillmentStatus
-        subtotalPriceSet { shopMoney { amount } }
-        totalShippingPriceSet { shopMoney { amount } }
-        totalTaxSet { shopMoney { amount } }
-        totalDiscountsSet { shopMoney { amount } }
-        totalPriceSet { shopMoney { amount } }
-        customer { id email firstName lastName createdAt updatedAt }
-        lineItems(first: 250) {
-          edges {
-            node {
-              sku
-              name
-              quantity
-              discountedTotalSet { shopMoney { amount } }
-              originalTotalSet { shopMoney { amount } }
-              taxLines { priceSet { shopMoney { amount } } }
-              variant { id }
-            }
-          }
-        }
-      }
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}
-`;
-
-function json(data: any, status = 200) { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }); }
