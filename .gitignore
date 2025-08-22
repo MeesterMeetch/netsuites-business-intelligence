@@ -120,4 +120,4 @@ confidential/
 
 # User-specific Files
 config.local.*
-settings.local.*
+settings.local.*server/.dev.vars

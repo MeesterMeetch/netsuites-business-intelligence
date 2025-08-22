@@ -1,0 +1,5 @@
+# Example local dev vars (DO NOT PUT REAL TOKENS HERE)
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/db?sslmode=require
+SHOPIFY_STORES=[{"domain":"example.myshopify.com","token":"shpat_xxxxxxxxxxxxxxxxxxxxxxxx"}]
+PAGE_SIZE=50
+MAX_PAGES_PER_RUN=5
