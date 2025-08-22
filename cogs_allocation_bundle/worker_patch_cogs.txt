@@ -1,0 +1,131 @@
+\
+/* === PATCH: COGS Import & Allocation ===
+Add to your Worker (server/src/worker.ts):
+
+1) Add Env var:
+   ADMIN_TOKEN?: string; // bearer token for admin endpoints
+
+2) Add routes inside fetch():
+----------------------------------------------------------
+      if (url.pathname === "/admin/costs/upload" && req.method === "POST") {
+        await requireAdmin(req, env);
+        const text = await req.text();
+        const { inserted, updated } = await importCostsCSV(env, text);
+        return json({ ok: true, inserted, updated });
+      }
+
+      if (url.pathname === "/admin/costs/recompute" && req.method === "POST") {
+        await requireAdmin(req, env);
+        const p = Object.fromEntries(url.searchParams.entries());
+        const range = p.range ?? "365d";
+        const shop = p.shop ?? "all";
+        const updated = await recomputeLandedCosts(env, range, shop);
+        return json({ ok: true, updated });
+      }
+----------------------------------------------------------
+
+3) Add helpers at bottom:
+---------------------------------------------------------- */
+async function requireAdmin(req: Request, env: any) {
+  const auth = req.headers.get("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
+    throw new Error("Unauthorized");
+  }
+}
+
+// very small CSV parser (expects header: sku,cost,effective_from[,effective_to])
+function parseCSV(text: string) {
+  const lines = text.trim().split(/\r?\n/);
+  const header = lines.shift() || "";
+  const cols = header.split(",").map(s=>s.trim().toLowerCase());
+  const idx = {
+    sku: cols.indexOf("sku"),
+    cost: cols.indexOf("cost"),
+    effective_from: cols.indexOf("effective_from"),
+    effective_to: cols.indexOf("effective_to")
+  };
+  if (idx.sku<0 or idx.cost<0 or idx.effective_from<0) throw new Error("CSV must have headers: sku,cost,effective_from[,effective_to]");
+  const rows:any[] = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const parts = line.split(",").map(s=>s.trim());
+    rows.push({
+      sku: parts[idx.sku],
+      cost: Number(parts[idx.cost]),
+      effective_from: parts[idx.effective_from],
+      effective_to: idx.effective_to>=0 ? (parts[idx.effective_to] || null) : null
+    });
+  }
+  return rows;
+}
+
+async function importCostsCSV(env: any, text: string) {
+  const pool = new Pool({ connectionString: env.DATABASE_URL });
+  const client = await pool.connect();
+  const rows = parseCSV(text);
+  let inserted = 0, updated = 0;
+  try {
+    await client.query("BEGIN");
+    for (const r of rows) {
+      const res = await client.query(
+        `INSERT INTO sku_costs (sku, cost, effective_from, effective_to)
+         VALUES ($1,$2,$3,$4)
+         ON CONFLICT (sku, effective_from)
+         DO UPDATE SET cost = EXCLUDED.cost, effective_to = EXCLUDED.effective_to`,
+        [r.sku, r.cost, r.effective_from, r.effective_to]
+      );
+      if (res.rowCount === 1) inserted++; else updated++;
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    await client.release();
+  }
+  return { inserted, updated };
+}
+
+async function recomputeLandedCosts(env: any, range: string, shop: string) {
+  const pool = new Pool({ connectionString: env.DATABASE_URL });
+  const client = await pool.connect();
+  try {
+    const days = (String(range).match(/(\d+)d/) ? Number(RegExp.$1) : 365);
+    const params:any[] = [days];
+    let where = `o.placed_at >= now() - ($1 || ' days')::interval`;
+    if (shop !== "all") { where += ` AND o.shop_id = $2`; params.push(Number(shop)); }
+
+    // Update landed_cost_alloc from sku_costs by matching effective date to order placed_at
+    const sql = `
+      WITH cand AS (
+        SELECT i.id AS item_id, i.qty, i.sku, o.placed_at
+        FROM order_items i
+        JOIN orders o ON o.id = i.order_id
+        WHERE ${where}
+      ), priced AS (
+        SELECT c.item_id,
+               c.qty * sc.cost AS alloc_cost
+        FROM cand c
+        JOIN LATERAL (
+          SELECT cost
+          FROM sku_costs s
+          WHERE s.sku = c.sku
+            AND s.effective_from <= c.placed_at::date
+            AND (s.effective_to IS NULL OR s.effective_to >= c.placed_at::date)
+          ORDER BY s.effective_from DESC
+          LIMIT 1
+        ) sc ON TRUE
+      )
+      UPDATE order_items i
+      SET landed_cost_alloc = p.alloc_cost
+      FROM priced p
+      WHERE i.id = p.item_id
+      RETURNING i.id`;
+    const res = await client.query(sql, params);
+    return res.rowCount || 0;
+  } finally {
+    await client.release();
+  }
+}
+/* === END PATCH === */

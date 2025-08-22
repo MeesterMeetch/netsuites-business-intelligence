@@ -1,0 +1,3 @@
+# This package contains ready-to-drop files.
+# Copy the `db/` and `server/` folders and `README_worker.md` into your repo root.
+# Then commit on a new branch.

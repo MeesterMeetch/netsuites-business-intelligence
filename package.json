@@ -3,16 +3,14 @@
     "version": "1.0.0",
     "description": "Enterprise-level business intelligence dashboard for NetSuite data analysis with inventory optimization, customer intelligence, supplier analysis, and predictive analytics",
     "main": "index.html",
-    "scripts":
-    {
+    "scripts": {
         "start": "open index.html",
         "serve": "python -m http.server 8000",
         "serve-node": "npx http-server -p 8000",
         "lint": "echo 'No linting configured yet'",
         "test": "echo 'No tests configured yet'"
     },
-    "keywords":
-    [
+    "keywords": [
         "business-intelligence",
         "netsuite",
         "dashboard",
@@ -24,104 +22,85 @@
         "data-visualization",
         "enterprise"
     ],
-    "authors":
-    [
+    "authors": [
         "Mitch Hunt",
         "Bryan Badilla"
     ],
     "license": "PROPRIETARY",
     "private": true,
-    "repository":
-    {
+    "repository": {
         "type": "git",
         "url": "git+https://github.com/your-username/netsuites-business-intelligence.git"
     },
-    "bugs":
-    {
+    "bugs": {
         "url": "https://github.com/your-username/netsuites-business-intelligence/issues"
     },
     "homepage": "https://github.com/your-username/netsuites-business-intelligence#readme",
-    "dependencies":
-    {},
-    "devDependencies":
-    {},
-    "engines":
-    {
+    "dependencies": {
+        "@neondatabase/serverless": "^1.0.1"
+    },
+    "engines": {
         "node": ">=12.0.0"
     },
-    "browserslist":
-    [
+    "browserslist": [
         "> 1%",
         "last 2 versions",
         "not dead"
     ],
-    "features":
-    {
-        "customer-intelligence":
-        {
+    "features": {
+        "customer-intelligence": {
             "concentration-risk": true,
             "segmentation": true,
             "upselling-opportunities": true
         },
-        "supplier-intelligence":
-        {
+        "supplier-intelligence": {
             "dependency-risk": true,
             "single-source-analysis": true,
             "negotiation-leverage": true
         },
-        "predictive-analytics":
-        {
+        "predictive-analytics": {
             "stockout-alerts": true,
             "demand-forecasting": true,
             "reorder-optimization": true,
             "price-optimization": true
         },
-        "inventory-optimization":
-        {
+        "inventory-optimization": {
             "slow-movers": true,
             "dead-stock": true,
             "working-capital": true
         }
     },
-    "technologies":
-    {
-        "frontend":
-        [
+    "technologies": {
+        "frontend": [
             "HTML5",
             "CSS3",
             "JavaScript ES6+"
         ],
-        "visualization":
-        [
+        "visualization": [
             "Chart.js 3.9.1"
         ],
-        "data-processing":
-        [
+        "data-processing": [
             "PapaParse 5.3.0",
             "SheetJS 0.18.5"
         ],
-        "styling":
-        [
+        "styling": [
             "CSS Grid",
             "Flexbox",
             "Responsive Design"
         ]
     },
-    "business-impact":
-    {
+    "business-impact": {
         "optimization-potential": "$8M+",
         "price-optimization": "$78K annually",
         "critical-alerts": "17 stockout risks",
         "reorder-recommendations": "522 items"
     },
-    "supported-formats":
-    [
+    "supported-formats": [
         "CSV",
         "XLS",
         "XLSX"
     ],
-    "browser-support":
-    [
+    "browser-support": [
         "Chrome >= 60",
         "Firefox >= 60",
         "Safari >= 12",

@@ -12,8 +12,14 @@ compatibility_date = "2024-11-21"
 # ]
 
 # Optional: default page size + safety cap
-PAGE_SIZE = 100
-MAX_PAGES_PER_RUN = 10
+#PAGE_SIZE = 50            # was 100
+#MAX_PAGES_PER_RUN = 5     # was 10
+#
+#[triggers]
+#crons = ["*/30 * * * *"] # every 30 minutes
+
+PAGE_SIZE = "50"
+MAX_PAGES_PER_RUN = "5"
 
 [triggers]
-crons = ["*/30 * * * *"] # every 30 minutes
+crons = ["*/5 * * * *"]   # every 5 minutes

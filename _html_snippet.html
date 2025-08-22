@@ -1,0 +1,43 @@
+<!-- Add these sections somewhere on your dashboard -->
+
+<!-- Store selector (reuse the one from previous bundle) -->
+<label style="display:block;margin:8px 0 4px;color:#666;font-size:12px">Store</label>
+<select id="shopSelect" style="padding:8px 10px;border-radius:8px;border:1px solid #ddd">
+  <option value="all" selected>All Stores</option>
+</select>
+
+<!-- Revenue trend -->
+<h3 style="margin-top:16px">Revenue (30d)</h3>
+<canvas id="revenueTrend" height="120"></canvas>
+
+<!-- Top products -->
+<h3 style="margin-top:16px">Top Products (30d)</h3>
+<table style="width:100%;border-collapse:collapse">
+  <thead><tr><th align="left">SKU</th><th align="left">Title</th><th align="right">Units</th><th align="right">Revenue</th></tr></thead>
+  <tbody id="topProductsBody"></tbody>
+</table>
+
+<!-- Channel margin -->
+<h3 style="margin-top:16px">Channel Margin (30d)</h3>
+<table style="width:100%;border-collapse:collapse">
+  <thead><tr><th align="left">Channel</th><th align="right">Revenue</th><th align="right">Cost</th><th align="right">Margin</th></tr></thead>
+  <tbody id="channelMarginBody"></tbody>
+</table>
+
+<!-- Low stock -->
+<h3 style="margin-top:16px">Low Stock (threshold 10)</h3>
+<table style="width:100%;border-collapse:collapse">
+  <thead><tr><th align="left">SKU</th><th align="right">On Hand</th><th align="right">Committed</th><th align="right">Backordered</th><th align="left">Updated</th></tr></thead>
+  <tbody id="lowStockBody"></tbody>
+</table>
+
+<!-- Cohorts -->
+<h3 style="margin-top:16px">Customer Cohorts (month 0..6)</h3>
+<table style="width:100%;border-collapse:collapse">
+  <thead><tr><th align="left">Cohort</th><th>M0</th><th>M1</th><th>M2</th><th>M3</th><th>M4</th><th>M5</th><th>M6</th></tr></thead>
+  <tbody id="cohortsBody"></tbody>
+</table>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="/web/metrics-advanced.js"></script>
