@@ -3,10 +3,7 @@
  * Top/Bottom SKUs, Repeat Rates, and KPI loading shimmer.
  */
 
-const WORKER_BASE =
-  (location.hostname === "localhost" || location.hostname === "127.0.0.1")
-    ? "http://localhost:8787"
-    : "https://netsuite-bi-ingest.mitchbiworker.workers.dev";
+const WORKER_BASE = "https://netsuite-bi-ingest.mitchbiworker.workers.dev";
 
 /* ---------- utils ---------- */ 
 async function fetchJSON(url) {
