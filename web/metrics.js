@@ -43,6 +43,55 @@ function downloadCSV(filename, rows) {
   link.remove();
 }
 
+/* ---------- admin backfill ---------- */
+async function runBackfill() {
+  const days   = Number(document.getElementById("backfill-days")?.value || 365);
+  const store  = document.getElementById("backfill-store")?.value?.trim() || "";
+  const reset  = !!document.getElementById("backfill-reset")?.checked;
+  const token  = document.getElementById("backfill-token")?.value?.trim() || "";
+  const btn    = document.getElementById("backfill-btn");
+  const status = document.getElementById("backfill-status");
+
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = "Backfilling…"; }
+    if (status) status.textContent = "Starting backfill…";
+
+    const url = new URL("/api/admin/backfill", WORKER_BASE);
+    url.searchParams.set("days", String(days));
+    url.searchParams.set("reset", String(reset));
+    if (store) url.searchParams.set("store", store);
+    if (token) url.searchParams.set("token", token);
+
+    const res = await fetch(url.toString(), { method: "POST", headers: { "Accept": "application/json" }});
+    const data = await res.json();
+    if (!res.ok || data?.ok === false) {
+      throw new Error(data?.error || res.statusText || `HTTP ${res.status}`);
+    }
+
+    if (status) {
+      const total = Array.isArray(data.results)
+        ? data.results.reduce((a, r) => a + (r?.summary ? Object
+            .values(r.summary).reduce((x, y) => x + (y?.ordersIngested || 0), 0) : 0), 0)
+        : 0;
+      status.textContent = `Backfill ok (days=${days}${store?`, store=${store}`:""}, reset=${reset}). Orders ingested this run: ${total.toLocaleString()}. Refreshing KPIs…`;
+    }
+
+    // Refresh the live panels
+    const current = document.getElementById("shop-selector")?.value || "";
+    await loadKPIs(current);
+    await loadSalesTable(current);
+    if (document.getElementById("top-skus-tbody"))    await loadTopSkus();
+    if (document.getElementById("bottom-skus-tbody")) await loadBottomSkus();
+    if (document.getElementById("repeat-tbody"))      await loadRepeatRates();
+  } catch (err) {
+    if (status) status.textContent = `Backfill error: ${err.message || err}`;
+    alert(`Backfill failed: ${err.message || err}`);
+    console.error(err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Backfill"; }
+  }
+}
+
 /* ---------- global state for exports ---------- */
 const Last = {
   topSkus: [],
@@ -164,6 +213,10 @@ async function loadSalesTable(storeDomain = "", windowDays = null) {
   const days = windowDays != null ? Number(windowDays)
               : (sel ? Number(sel.value || 14) : 14);
   Last.currentSalesWindow = days;
+
+  // update label
+  const lbl = $("sales-window-label");
+  if (lbl) lbl.textContent = String(days);
 
   const { rows = [] } = await fetchJSON(qs("/api/kpis/daily", { days, store: storeDomain || undefined }));
 
@@ -348,6 +401,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadRepeatRates();
 
     ensureButtons();
+
+    // Admin backfill button (single listener)
+    document.getElementById("backfill-btn")?.addEventListener("click", async () => {
+      const storeInput = document.getElementById("backfill-store");
+      if (storeInput && !storeInput.value) {
+        const sel = document.getElementById("shop-selector");
+        if (sel?.value) storeInput.value = sel.value;
+      }
+      await runBackfill();
+    });
 
     // React to store scope change
     globStoreSel?.addEventListener("change", async (e) => {
