@@ -112,6 +112,33 @@ async function queryRows<T = any>(client: PoolClient, sql: string, params: any[]
   return r.rows as T[];
 }
 
+/** Ensure compatibility view for legacy KPI queries */
+async function ensureCompatView(client: PoolClient): Promise<void> {
+  await client.query(`
+    CREATE OR REPLACE VIEW v_order_items_enriched AS
+    SELECT
+      id,
+      order_id,
+      sku,
+      external_product_id,
+      title,
+      qty,
+      unit_price,
+      discount,
+      tax,
+      fees,
+      landed_cost_alloc,
+      external_item_id,
+      (
+        COALESCE(unit_price,0)
+        - COALESCE(discount,0)
+        + COALESCE(tax,0)
+        + COALESCE(fees,0)
+      )::numeric(18,2) AS line_total
+    FROM order_items;
+  `);
+}
+
 /*───────────────────────────────────────────────────────────────────────────*
   Cursor + schedule index (sync_state) — composite PK + TEXT value
 *───────────────────────────────────────────────────────────────────────────*/
@@ -399,12 +426,52 @@ export default {
 
       const client = await getClient(env);
       try {
-        const base =
-          `SELECT shop_domain, sku, title, units_window, revenue_window` +
-          (include365 ? `, units_365, revenue_365` : ``) +
-          ` FROM v_top_skus_window(${days})`;
-        const sql = base + (store ? ` WHERE shop_domain=$1` : ``) + ` ORDER BY revenue_window DESC NULLS LAST LIMIT ${limit}`;
-        const rows = await queryRows(client, sql, store ? [store] : []);
+        await ensureCompatView(client);
+
+        const params: any[] = [days];
+        if (store) params.push(store);
+
+        const sql = `
+          WITH window_orders AS (
+            SELECT
+              oi.sku,
+              COALESCE(oi.title,'')                     AS title,
+              o.shop_domain,
+              SUM(oi.qty)::int                          AS units_window,
+              SUM(oi.line_total)::numeric(20,2)         AS revenue_window
+            FROM v_order_items_enriched oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE o.placed_at >= (CURRENT_DATE - ($1::int || ' days')::interval)
+              ${store ? `AND o.shop_domain = $2` : ``}
+            GROUP BY 1,2,3
+          )
+          SELECT
+            w.sku,
+            w.title,
+            w.shop_domain,
+            w.units_window,
+            w.revenue_window
+            ${include365 ? `,
+            x.units_365,
+            x.revenue_365` : ``}
+          FROM window_orders w
+          ${include365 ? `
+          LEFT JOIN LATERAL (
+            SELECT
+              SUM(oi2.qty)::int                  AS units_365,
+              SUM(oi2.line_total)::numeric(20,2) AS revenue_365
+            FROM v_order_items_enriched oi2
+            JOIN orders o2 ON o2.id = oi2.order_id
+            WHERE oi2.sku = w.sku
+              AND o2.shop_domain = w.shop_domain
+              AND o2.placed_at >= (CURRENT_DATE - INTERVAL '365 days')
+          ) x ON TRUE
+          ` : ``}
+          ORDER BY w.revenue_window DESC NULLS LAST
+          LIMIT ${limit};
+        `;
+
+        const rows = await queryRows(client, sql, params);
         return json({ ok: true, rows });
       } catch (e:any) {
         return json({ ok:false, error:e?.message || String(e) }, 500);
@@ -422,12 +489,52 @@ export default {
 
       const client = await getClient(env);
       try {
-        const base =
-          `SELECT shop_domain, sku, title, units_window, revenue_window` +
-          (include365 ? `, units_365, revenue_365` : ``) +
-          ` FROM v_bottom_skus_window(${days})`;
-        const sql = base + (store ? ` WHERE shop_domain=$1` : ``) + ` ORDER BY revenue_window ASC NULLS LAST LIMIT ${limit}`;
-        const rows = await queryRows(client, sql, store ? [store] : []);
+        await ensureCompatView(client);
+
+        const params: any[] = [days];
+        if (store) params.push(store);
+
+        const sql = `
+          WITH window_orders AS (
+            SELECT
+              oi.sku,
+              COALESCE(oi.title,'')                     AS title,
+              o.shop_domain,
+              SUM(oi.qty)::int                          AS units_window,
+              SUM(oi.line_total)::numeric(20,2)         AS revenue_window
+            FROM v_order_items_enriched oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE o.placed_at >= (CURRENT_DATE - ($1::int || ' days')::interval)
+              ${store ? `AND o.shop_domain = $2` : ``}
+            GROUP BY 1,2,3
+          )
+          SELECT
+            w.sku,
+            w.title,
+            w.shop_domain,
+            w.units_window,
+            w.revenue_window
+            ${include365 ? `,
+            x.units_365,
+            x.revenue_365` : ``}
+          FROM window_orders w
+          ${include365 ? `
+          LEFT JOIN LATERAL (
+            SELECT
+              SUM(oi2.qty)::int                  AS units_365,
+              SUM(oi2.line_total)::numeric(20,2) AS revenue_365
+            FROM v_order_items_enriched oi2
+            JOIN orders o2 ON o2.id = oi2.order_id
+            WHERE oi2.sku = w.sku
+              AND o2.shop_domain = w.shop_domain
+              AND o2.placed_at >= (CURRENT_DATE - INTERVAL '365 days')
+          ) x ON TRUE
+          ` : ``}
+          ORDER BY w.revenue_window ASC NULLS LAST, w.units_window ASC NULLS LAST
+          LIMIT ${limit};
+        `;
+
+        const rows = await queryRows(client, sql, params);
         return json({ ok: true, rows });
       } catch (e:any) {
         return json({ ok:false, error:e?.message || String(e) }, 500);
