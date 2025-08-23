@@ -1,0 +1,12 @@
+name = "netsuite-bi-ingest"
+main = "server/src/worker.ts"
+compatibility_date = "2025-08-23"
+
+# Only keep this if you actually need Node polyfills.
+# Comment it out later if you don't.
+compatibility_flags = ["nodejs_compat"]
+
+# Optional defaults you can tweak:
+[vars]
+PAGE_SIZE = "100"
+MAX_PAGES_PER_RUN = "10"
