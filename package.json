@@ -107,3 +107,10 @@
         "Edge >= 80"
     ]
 }
+{
+  "scripts": {
+    "dev:worker": "cd server && npx wrangler dev --local",
+    "deploy:worker": "cd server && npx wrangler deploy",
+    "release": "scripts/release.sh \"release: KPIs & export\""
+  }
+}
