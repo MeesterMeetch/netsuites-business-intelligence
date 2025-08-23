@@ -63,7 +63,36 @@
         <label for="shop-selector" style="font-weight:600;">Store:</label>
         <select id="shop-selector" style="padding:.5rem .75rem; min-width:260px; border-radius:10px; border:1px solid #d0d7de;"></select>
       </div>
+      
+      <!-- Sales window + Export -->
+<div class="controls" style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; margin: .5rem 0 1rem;">
+  <label for="sales-window" style="font-weight:600;">Window:</label>
+  <select id="sales-window" style="padding:.5rem .75rem; min-width:160px; border-radius:10px; border:1px solid #d0d7de;">
+    <option value="1">1 day</option>
+    <option value="7">7 days</option>
+    <option value="14" selected>14 days</option>
+    <option value="30">30 days</option>
+    <option value="90">90 days</option>
+    <option value="365">365 days</option>
+  </select>
 
+  <button id="sales-export" class="btn">Export CSV</button>
+</div>
+
+<!-- Sales table -->
+<div class="table-wrap" style="overflow:auto; border:1px solid #e6e8eb; border-radius:12px; margin-bottom:1.5rem;">
+  <table class="table" style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="text-align:left; padding:.5rem .75rem;">Day</th>
+        <th style="text-align:right; padding:.5rem .75rem;">Orders</th>
+        <th style="text-align:right; padding:.5rem .75rem;">Revenue</th>
+        <th style="text-align:right; padding:.5rem .75rem;">Units</th>
+        <th style="text-align:right; padding:.5rem .75rem;">AOV</th>
+      </tr>
+    </thead>
+    <tbody id="sales-14d-tbody"></tbody>
+  </table>
       <!-- LIVE KPI TILES (Orders / Revenue / AOV / Returning %) -->
       <div class="overview-metrics">
         <div class="overview-metric">
