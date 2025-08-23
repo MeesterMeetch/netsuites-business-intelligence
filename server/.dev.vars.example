@@ -1,5 +1,17 @@
-# Example local dev vars (DO NOT PUT REAL TOKENS HERE)
-DATABASE_URL=postgresql://USER:PASSWORD@HOST/db?sslmode=require
-SHOPIFY_STORES=[{"domain":"example.myshopify.com","token":"shpat_xxxxxxxxxxxxxxxxxxxxxxxx"}]
-PAGE_SIZE=50
-MAX_PAGES_PER_RUN=5
+# Example .dev.vars — SAFE TO COMMIT
+# Copy this file to `.dev.vars` or `.dev.vars.local` and fill in real values there.
+# Never commit `.dev.vars` or `.dev.vars.local`.
+
+# Neon Postgres URL (replace with your actual in local copy)
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+
+# Shopify stores config (replace with real shpat_xxx tokens in local copy)
+SHOPIFY_STORES=[
+  {"domain":"essential-electric-supply.myshopify.com","token":"shpat_xxxxxxxxxxxxxxxxxxxxxxxx"},
+  {"domain":"cbguys.myshopify.com","token":"shpat_xxxxxxxxxxxxxxxxxxxxxxxx"},
+  {"domain":"united-fuses.myshopify.com","token":"shpat_xxxxxxxxxxxxxxxxxxxxxxxx"}
+]
+
+# Optional tuning
+PAGE_SIZE=100
+MAX_PAGES_PER_RUN=10
