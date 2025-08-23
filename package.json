@@ -1,116 +1,41 @@
 {
-    "name": "netsuites-business-intelligence",
-    "version": "1.0.0",
-    "description": "Enterprise-level business intelligence dashboard for NetSuite data analysis with inventory optimization, customer intelligence, supplier analysis, and predictive analytics",
-    "main": "index.html",
-    "scripts": {
-        "start": "open index.html",
-        "serve": "python -m http.server 8000",
-        "serve-node": "npx http-server -p 8000",
-        "lint": "echo 'No linting configured yet'",
-        "test": "echo 'No tests configured yet'"
-    },
-    "keywords": [
-        "business-intelligence",
-        "netsuite",
-        "dashboard",
-        "analytics",
-        "inventory-optimization",
-        "customer-intelligence",
-        "supplier-analysis",
-        "predictive-analytics",
-        "data-visualization",
-        "enterprise"
-    ],
-    "authors": [
-        "Mitch Hunt",
-        "Bryan Badilla"
-    ],
-    "license": "PROPRIETARY",
-    "private": true,
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/your-username/netsuites-business-intelligence.git"
-    },
-    "bugs": {
-        "url": "https://github.com/your-username/netsuites-business-intelligence/issues"
-    },
-    "homepage": "https://github.com/your-username/netsuites-business-intelligence#readme",
-    "dependencies": {
-        "@neondatabase/serverless": "^1.0.1"
-    },
-    "engines": {
-        "node": ">=12.0.0"
-    },
-    "browserslist": [
-        "> 1%",
-        "last 2 versions",
-        "not dead"
-    ],
-    "features": {
-        "customer-intelligence": {
-            "concentration-risk": true,
-            "segmentation": true,
-            "upselling-opportunities": true
-        },
-        "supplier-intelligence": {
-            "dependency-risk": true,
-            "single-source-analysis": true,
-            "negotiation-leverage": true
-        },
-        "predictive-analytics": {
-            "stockout-alerts": true,
-            "demand-forecasting": true,
-            "reorder-optimization": true,
-            "price-optimization": true
-        },
-        "inventory-optimization": {
-            "slow-movers": true,
-            "dead-stock": true,
-            "working-capital": true
-        }
-    },
-    "technologies": {
-        "frontend": [
-            "HTML5",
-            "CSS3",
-            "JavaScript ES6+"
-        ],
-        "visualization": [
-            "Chart.js 3.9.1"
-        ],
-        "data-processing": [
-            "PapaParse 5.3.0",
-            "SheetJS 0.18.5"
-        ],
-        "styling": [
-            "CSS Grid",
-            "Flexbox",
-            "Responsive Design"
-        ]
-    },
-    "business-impact": {
-        "optimization-potential": "$8M+",
-        "price-optimization": "$78K annually",
-        "critical-alerts": "17 stockout risks",
-        "reorder-recommendations": "522 items"
-    },
-    "supported-formats": [
-        "CSV",
-        "XLS",
-        "XLSX"
-    ],
-    "browser-support": [
-        "Chrome >= 60",
-        "Firefox >= 60",
-        "Safari >= 12",
-        "Edge >= 80"
-    ]
-}
-{
+  "type": "module",
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "dev:worker": "cd server && npx wrangler dev --local",
-    "deploy:worker": "cd server && npx wrangler deploy",
-    "release": "scripts/release.sh \"release: KPIs & export\""
+    "start": "npm run dev",
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+
+    "backfill:ees:reset": "curl -s -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=365&reset=true&store=essential-electric-supply.myshopify.com\" | jq .",
+    "backfill:cbg:reset": "curl -s -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=365&reset=true&store=cbguys.myshopify.com\" | jq .",
+    "backfill:uf:reset": "curl -s -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=365&reset=true&store=united-fuses.myshopify.com\" | jq .",
+    "backfill:all:reset": "npm run backfill:ees:reset && sleep 5 && npm run backfill:cbg:reset && sleep 5 && npm run backfill:uf:reset",
+
+    "backfill:ees": "curl -s -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=30&store=essential-electric-supply.myshopify.com\" | jq .",
+    "backfill:cbg": "curl -s -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=30&store=cbguys.myshopify.com\" | jq .",
+    "backfill:uf": "curl -s -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=30&store=united-fuses.myshopify.com\" | jq .",
+    "backfill:all": "npm run backfill:ees && sleep 5 && npm run backfill:cbg && sleep 5 && npm run backfill:uf",
+
+    "kpis:top-skus": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/top-skus?days=30&limit=10\" | jq .",
+    "kpis:bottom-skus": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/bottom-skus?days=30&limit=10\" | jq .",
+    "kpis:daily": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/daily?days=14\" | jq .",
+    "kpis:rolling": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/rolling\" | jq .",
+
+    "commit": "git add . && git commit -m \"auto: update + deploy\" && git push origin main",
+    "ship": "npm run commit && npm run deploy",
+
+    "menu": "node tools/menu.js",
+
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
   }
 }
