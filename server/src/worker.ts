@@ -11,6 +11,7 @@ type Env = {
   SHOPIFY_STORES?: string;      // JSON array: [{domain, token}, ...]
   PAGE_SIZE?: string;           // default "100" (max 250)
   MAX_PAGES_PER_RUN?: string;   // default "10"
+  BACKFILL_TOKEN?: string;      // optional: require ?token=... for /api/admin/backfill
 };
 
 /*───────────────────────────────────────────────────────────────────────────*
@@ -37,9 +38,9 @@ function json(body: unknown, status = 200) {
 
 function sanitizeDomain(d: string): string {
   if (!d) return "";
-  d = d.trim().replace(/^https?:\/\//i, "");
-  d = d.replace(/\/.*/, "");
-  d = d.replace(/^"+|"+$/g, "").replace(/^'+|'+$/g, "");
+  d = d.trim().replace(/^https?:\/\//i, "");   // drop protocol
+  d = d.replace(/\/.*/, "");                   // drop path/query
+  d = d.replace(/^"+|"+$/g, "").replace(/^'+|'+$/g, ""); // strip quotes
   return d;
 }
 
@@ -117,9 +118,12 @@ async function queryRows<T = any>(client: PoolClient, sql: string, params: any[]
 function cursorKey(domain: string) {
   return `shopify:cursor:${domain}`;
 }
-
-function enc(obj: any): string { return JSON.stringify(obj ?? {}); }
-function dec(txt: any): any { try { return typeof txt === "string" ? JSON.parse(txt) : (txt ?? {}); } catch { return {}; } }
+function enc(obj: any): string {
+  return JSON.stringify(obj ?? {});
+}
+function dec(txt: any): any {
+  try { return typeof txt === "string" ? JSON.parse(txt) : (txt ?? {}); } catch { return {}; }
+}
 
 async function getCursor(client: PoolClient, channelId: number, domain: string): Promise<string | null> {
   await ensureSyncState(client);
@@ -148,6 +152,7 @@ async function setCursor(client: PoolClient, channelId: number, domain: string, 
 }
 
 const SCHEDULE_KEY = "shopify:schedule_idx";
+
 async function getScheduleIndex(client: PoolClient, channelId: number): Promise<number> {
   await ensureSyncState(client);
   const r = await client.query(
@@ -157,6 +162,7 @@ async function getScheduleIndex(client: PoolClient, channelId: number): Promise<
   const obj = dec(r.rows?.[0]?.value ?? null);
   return typeof obj?.idx !== "undefined" ? Number(obj.idx) || 0 : 0;
 }
+
 async function setScheduleIndex(client: PoolClient, channelId: number, idx: number): Promise<void> {
   await ensureSyncState(client);
   await client.query(
@@ -174,9 +180,10 @@ async function setScheduleIndex(client: PoolClient, channelId: number, idx: numb
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     if (req.method === "OPTIONS") return json({ ok: true });
+
     const url = new URL(req.url);
 
-    // 1) Shops
+    // 1) Shops (from secret)
     if (url.pathname === "/api/shops" && req.method === "GET") {
       const stores = parseStores(env.SHOPIFY_STORES);
       const shops = stores.map((s, i) => ({
@@ -187,7 +194,7 @@ export default {
       return shops.length ? json({ ok: true, shops }) : json({ ok: false, error: "No stores configured" });
     }
 
-    // 2) Debug: store parsing
+    // 2) Debug: store parsing preview
     if (url.pathname === "/api/debug/stores" && req.method === "GET") {
       const stores = parseStores(env.SHOPIFY_STORES);
       const preview = stores.map((s) => {
@@ -209,7 +216,7 @@ export default {
       }
     }
 
-    // 4) Debug: cursors
+    // 4) Debug: cursors dump
     if (url.pathname === "/api/debug/cursor" && req.method === "GET") {
       const stores = parseStores(env.SHOPIFY_STORES);
       const client = await getClient(env);
@@ -223,7 +230,7 @@ export default {
       }
     }
 
-    // 5) Debug: reset cursor
+    // 5) Debug: reset a cursor (?store=domain)
     if (url.pathname === "/api/debug/reset" && req.method === "POST") {
       const store = sanitizeDomain(url.searchParams.get("store") || "");
       if (!store) return json({ ok: false, error: "store param required" }, 400);
@@ -238,7 +245,7 @@ export default {
       }
     }
 
-    // 6) Debug: health snapshot
+    // 6) Debug: health snapshot (includes per-store totals)
     if (url.pathname === "/api/debug/health" && req.method === "GET") {
       const stores = parseStores(env.SHOPIFY_STORES);
       try {
@@ -248,13 +255,16 @@ export default {
           const mtNow = new Date().toLocaleString("en-US", { timeZone: "America/Denver", hour12: false });
           const scheduleIndex = await getScheduleIndex(client, channelId);
 
+          // cursors
           const cursors: Record<string, string | null> = {};
           for (const s of stores) cursors[s.domain] = await getCursor(client, channelId, s.domain);
 
+          // totals
           const orders = (await client.query(`select count(*)::int as n from orders`)).rows[0].n;
           const items  = (await client.query(`select count(*)::int as n from order_items`)).rows[0].n;
           const last   = (await client.query(`select max(placed_at) as t from orders`)).rows[0].t;
 
+          // per-store orders
           const rsOrders = await client.query(`
             select coalesce(shop_domain,'(unknown)') as shop_domain,
                    count(*)::int as orders,
@@ -264,6 +274,8 @@ export default {
             group by 1
             order by 2 desc
           `);
+
+          // per-store items
           const rsItems = await client.query(`
             select coalesce(o.shop_domain,'(unknown)') as shop_domain,
                    count(*)::int as items
@@ -301,7 +313,7 @@ export default {
       }
     }
 
-    // 7) Ingest trigger
+    // 7) Ingest trigger (supports ?store=, ?days=, ?reset=)
     if (url.pathname === "/ingest/shopify/run" && req.method === "POST") {
       try {
         const res = await runShopifyIngest(env, url.searchParams);
@@ -312,9 +324,7 @@ export default {
       }
     }
 
-    /*──────────────────────── KPI API endpoints ────────────────────────*/
-
-    // Daily KPIs
+    // === KPIs: daily ===
     if (url.pathname === "/api/kpis/daily" && req.method === "GET") {
       const days = Math.min(Math.max(Number(url.searchParams.get("days") || 14), 1), 365);
       const store = sanitizeDomain(url.searchParams.get("store") || "");
@@ -329,10 +339,12 @@ export default {
         return json({ ok: true, rows });
       } catch (e: any) {
         return json({ ok: false, error: e?.message ?? String(e) }, 500);
-      } finally { await client.release(); }
+      } finally {
+        await client.release();
+      }
     }
 
-    // Sales by store daily
+    // === KPIs: sales by store daily ===
     if (url.pathname === "/api/kpis/sales" && req.method === "GET") {
       const days = Math.min(Math.max(Number(url.searchParams.get("days") || 14), 1), 365);
       const store = sanitizeDomain(url.searchParams.get("store") || "");
@@ -347,10 +359,12 @@ export default {
         return json({ ok: true, rows });
       } catch (e: any) {
         return json({ ok: false, error: e?.message ?? String(e) }, 500);
-      } finally { await client.release(); }
+      } finally {
+        await client.release();
+      }
     }
 
-    // Rolling 7/30
+    // === KPIs: rolling 7/30 as of today (MT) ===
     if (url.pathname === "/api/kpis/rolling" && req.method === "GET") {
       const client = await getClient(env);
       try {
@@ -358,10 +372,12 @@ export default {
         return json({ ok: true, rows });
       } catch (e: any) {
         return json({ ok: false, error: e?.message ?? String(e) }, 500);
-      } finally { await client.release(); }
+      } finally {
+        await client.release();
+      }
     }
 
-    // Yesterday vs prior 7 avg
+    // === KPIs: store summary (yesterday vs prior 7‑day avg) ===
     if (url.pathname === "/api/kpis/summary" && req.method === "GET") {
       const client = await getClient(env);
       try {
@@ -369,142 +385,91 @@ export default {
         return json({ ok: true, rows });
       } catch (e: any) {
         return json({ ok: false, error: e?.message ?? String(e) }, 500);
-      } finally { await client.release(); }
+      } finally {
+        await client.release();
+      }
     }
 
-    // Repeat rates by store
+    // === KPIs: Top SKUs ===
+    if (url.pathname === "/api/kpis/top-skus" && req.method === "GET") {
+      const days = Math.min(Math.max(Number(url.searchParams.get("days") || 30), 1), 365);
+      const store = sanitizeDomain(url.searchParams.get("store") || "");
+      const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 500);
+      const include365 = (url.searchParams.get("include365") || "").toLowerCase() === "true";
+
+      const client = await getClient(env);
+      try {
+        const base =
+          `SELECT shop_domain, sku, title, units_window, revenue_window` +
+          (include365 ? `, units_365, revenue_365` : ``) +
+          ` FROM v_top_skus_window(${days})`;
+        const sql = base + (store ? ` WHERE shop_domain=$1` : ``) + ` ORDER BY revenue_window DESC NULLS LAST LIMIT ${limit}`;
+        const rows = await queryRows(client, sql, store ? [store] : []);
+        return json({ ok: true, rows });
+      } catch (e:any) {
+        return json({ ok:false, error:e?.message || String(e) }, 500);
+      } finally {
+        await client.release();
+      }
+    }
+
+    // === KPIs: Bottom SKUs ===
+    if (url.pathname === "/api/kpis/bottom-skus" && req.method === "GET") {
+      const days = Math.min(Math.max(Number(url.searchParams.get("days") || 30), 1), 365);
+      const store = sanitizeDomain(url.searchParams.get("store") || "");
+      const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 500);
+      const include365 = (url.searchParams.get("include365") || "").toLowerCase() === "true";
+
+      const client = await getClient(env);
+      try {
+        const base =
+          `SELECT shop_domain, sku, title, units_window, revenue_window` +
+          (include365 ? `, units_365, revenue_365` : ``) +
+          ` FROM v_bottom_skus_window(${days})`;
+        const sql = base + (store ? ` WHERE shop_domain=$1` : ``) + ` ORDER BY revenue_window ASC NULLS LAST LIMIT ${limit}`;
+        const rows = await queryRows(client, sql, store ? [store] : []);
+        return json({ ok: true, rows });
+      } catch (e:any) {
+        return json({ ok:false, error:e?.message || String(e) }, 500);
+      } finally {
+        await client.release();
+      }
+    }
+
+    // === KPIs: Repeat Rates ===
     if (url.pathname === "/api/kpis/repeat-rates" && req.method === "GET") {
       const client = await getClient(env);
       try {
-        const rows = await queryRows(client, `
-          SELECT shop_domain,
-                 customers_total,
-                 one_time_customers,
-                 repeat_customers,
-                 repeat_rate_pct,
-                 avg_ltv_repeat
-          FROM v_customer_repeat_rates
-          ORDER BY shop_domain
-        `);
-        return json({ ok: true, rows });
+        const rows = await queryRows(client, `SELECT * FROM v_customer_repeat_rates ORDER BY shop_domain`);
+        return json({ ok:true, rows });
       } catch (e:any) {
-        return json({ ok:false, error: e?.message ?? String(e) }, 500);
-      } finally { await client.release(); }
+        return json({ ok:false, error:e?.message || String(e) }, 500);
+      } finally {
+        await client.release();
+      }
     }
 
-    // Top SKUs (window + optional 365)
-    if (url.pathname === "/api/kpis/top-skus" && req.method === "GET") {
-      const store = sanitizeDomain(url.searchParams.get("store") || "");
-      const days = Math.min(Math.max(Number(url.searchParams.get("days") || 30), 1), 365);
-      const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 500);
-      const include365 = (url.searchParams.get("include365") || "true").toLowerCase() === "true";
-
-      const client = await getClient(env);
+    // === ADMIN: Backfill historical Shopify data ===
+    // POST /api/admin/backfill?days=365&store=<optional>&hard_reset=true&token=XYZ
+    if (url.pathname === "/api/admin/backfill" && req.method === "POST") {
       try {
-        const params: any[] = [];
-        let idx = 1;
+        if (env.BACKFILL_TOKEN) {
+          const token = url.searchParams.get("token") || "";
+          if (token !== env.BACKFILL_TOKEN) {
+            return json({ ok: false, error: "unauthorized" }, 401);
+          }
+        }
 
-        const whereStore = store ? `AND o.shop_domain = $${idx++}` : ``;
-        if (store) params.push(store);
+        const days = Math.min(Math.max(Number(url.searchParams.get("days") || 365), 1), 365);
+        const store = sanitizeDomain(url.searchParams.get("store") || "");
+        const hardReset = (url.searchParams.get("hard_reset") || "").toLowerCase() === "true";
 
-        const sql = `
-          WITH window AS (
-            SELECT
-              coalesce(o.shop_domain,'(unknown)') AS shop_domain,
-              oi.sku,
-              oi.title,
-              SUM(oi.qty)::int AS units_window,
-              SUM(oi.unit_price * oi.qty)::numeric(14,2) AS revenue_window
-            FROM order_items oi
-            JOIN orders o ON o.id = oi.order_id
-            WHERE o.placed_at >= (now() - INTERVAL '${days} days')
-              ${whereStore}
-            GROUP BY 1,2,3
-          )
-          ${include365 ? `
-          , y365 AS (
-            SELECT
-              coalesce(o.shop_domain,'(unknown)') AS shop_domain,
-              oi.sku,
-              SUM(oi.qty)::int AS units_365,
-              SUM(oi.unit_price * oi.qty)::numeric(14,2) AS revenue_365
-            FROM order_items oi
-            JOIN orders o ON o.id = oi.order_id
-            WHERE o.placed_at >= (now() - INTERVAL '365 days')
-              ${whereStore}
-            GROUP BY 1,2
-          )` : ``}
-          SELECT
-            w.sku, w.title, w.units_window, w.revenue_window
-            ${include365 ? `, y.units_365, y.revenue_365` : ``}
-          FROM window w
-          ${include365 ? `LEFT JOIN y365 y ON y.shop_domain = w.shop_domain AND y.sku = w.sku` : ``}
-          ORDER BY w.revenue_window DESC NULLS LAST
-          LIMIT ${limit}
-        `;
-        const rows = await queryRows(client, sql, params);
-        return json({ ok: true, rows });
+        const res = await backfillShopify(env, { days, store, hardReset });
+        return json({ ok: true, ...res });
       } catch (e:any) {
-        return json({ ok:false, error: e?.message ?? String(e) }, 500);
-      } finally { await client.release(); }
-    }
-
-    // Bottom SKUs (window + optional 365) — lowest revenue but selling (units > 0)
-    if (url.pathname === "/api/kpis/bottom-skus" && req.method === "GET") {
-      const store = sanitizeDomain(url.searchParams.get("store") || "");
-      const days = Math.min(Math.max(Number(url.searchParams.get("days") || 30), 1), 365);
-      const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 500);
-      const include365 = (url.searchParams.get("include365") || "true").toLowerCase() === "true";
-
-      const client = await getClient(env);
-      try {
-        const params: any[] = [];
-        let idx = 1;
-
-        const whereStore = store ? `AND o.shop_domain = $${idx++}` : ``;
-        if (store) params.push(store);
-
-        const sql = `
-          WITH window AS (
-            SELECT
-              coalesce(o.shop_domain,'(unknown)') AS shop_domain,
-              oi.sku,
-              oi.title,
-              SUM(oi.qty)::int AS units_window,
-              SUM(oi.unit_price * oi.qty)::numeric(14,2) AS revenue_window
-            FROM order_items oi
-            JOIN orders o ON o.id = oi.order_id
-            WHERE o.placed_at >= (now() - INTERVAL '${days} days')
-              ${whereStore}
-            GROUP BY 1,2,3
-          )
-          ${include365 ? `
-          , y365 AS (
-            SELECT
-              coalesce(o.shop_domain,'(unknown)') AS shop_domain,
-              oi.sku,
-              SUM(oi.qty)::int AS units_365,
-              SUM(oi.unit_price * oi.qty)::numeric(14,2) AS revenue_365
-            FROM order_items oi
-            JOIN orders o ON o.id = oi.order_id
-            WHERE o.placed_at >= (now() - INTERVAL '365 days')
-              ${whereStore}
-            GROUP BY 1,2
-          )` : ``}
-          SELECT
-            w.sku, w.title, w.units_window, w.revenue_window
-            ${include365 ? `, y.units_365, y.revenue_365` : ``}
-          FROM window w
-          ${include365 ? `LEFT JOIN y365 y ON y.shop_domain = w.shop_domain AND y.sku = w.sku` : ``}
-          WHERE w.units_window > 0
-          ORDER BY w.revenue_window ASC NULLS FIRST
-          LIMIT ${limit}
-        `;
-        const rows = await queryRows(client, sql, params);
-        return json({ ok: true, rows });
-      } catch (e:any) {
-        return json({ ok:false, error: e?.message ?? String(e) }, 500);
-      } finally { await client.release(); }
+        log("backfill:error", e?.message || String(e));
+        return json({ ok:false, error:e?.message || String(e) }, 500);
+      }
     }
 
     // fallback
@@ -522,7 +487,7 @@ export default {
 };
 
 /*───────────────────────────────────────────────────────────────────────────*
-  Round-robin cron + main ingest
+  Round-robin cron + backfill + main ingest
 *───────────────────────────────────────────────────────────────────────────*/
 async function runShopifyIngestRoundRobin(env: Env): Promise<{ store: string; result: unknown }> {
   const stores = parseStores(env.SHOPIFY_STORES);
@@ -546,6 +511,62 @@ async function runShopifyIngestRoundRobin(env: Env): Promise<{ store: string; re
   }
 }
 
+/** Admin backfill: loop runShopifyIngest until cursor ends (per store or all). */
+async function backfillShopify(env: Env, opts: { days: number; store?: string; hardReset?: boolean }) {
+  const stores = parseStores(env.SHOPIFY_STORES);
+  if (!stores.length) throw new Error("No stores configured");
+
+  const target = opts.store ? sanitizeDomain(opts.store) : "";
+  const list = target ? stores.filter(s => sanitizeDomain(s.domain) === target) : stores;
+
+  const perStoreSummary: Record<string, { iterations: number; pages: number; orders: number }> = {};
+  const maxIterations = 200; // safety cap
+
+  for (const s of list) {
+    const domain = sanitizeDomain(s.domain);
+    let iterations = 0;
+    let totalPages = 0;
+    let totalOrders = 0;
+
+    // optional hard reset
+    if (opts.hardReset) {
+      const c = await getClient(env);
+      try {
+        const channelId = await getOrCreateShopifyChannelId(c);
+        await setCursor(c, channelId, domain, null);
+        log("backfill:reset", { domain });
+      } finally {
+        await c.release();
+      }
+    }
+
+    // loop until run returns fewer than max pages OR no orders
+    while (iterations < maxIterations) {
+      iterations++;
+      const params = new URLSearchParams({
+        store: domain,
+        days: String(opts.days),
+      });
+      const res: any = await runShopifyIngest(env, params);
+      const pagesThisRun = Number(res?.summary?.[domain]?.pages || 0);
+      const ordersThisRun = Number(res?.summary?.[domain]?.ordersIngested || 0);
+      totalPages += pagesThisRun;
+      totalOrders += ordersThisRun;
+
+      log("backfill:iteration", { domain, iterations, pagesThisRun, ordersThisRun });
+
+      // heuristic: if we didn't hit your per-run page ceiling, or we got 0 orders, assume done
+      const perRunCap = Math.min(Math.max(Number(env.MAX_PAGES_PER_RUN || 10), 1), 50);
+      if (pagesThisRun < perRunCap || ordersThisRun === 0) break;
+    }
+
+    perStoreSummary[domain] = { iterations, pages: totalPages, orders: totalOrders };
+  }
+
+  return { days: opts.days, hardReset: !!opts.hardReset, stores: list.map(s => s.domain), perStoreSummary };
+}
+
+/* Core ingest: single pass (up to MAX_PAGES_PER_RUN) for one or all stores */
 async function runShopifyIngest(env: Env, params: URLSearchParams): Promise<{
   summary: Record<string, { pages: number; ordersIngested: number }>;
 }> {
@@ -581,6 +602,7 @@ async function runShopifyIngest(env: Env, params: URLSearchParams): Promise<{
     for (const s of list) {
       const domain = sanitizeDomain(s.domain);
       if (!isValidDomain(domain)) throw new Error(`Invalid shop domain: "${s.domain}" -> "${domain}"`);
+
       const token = s.token;
       if (!/^shpat_/.test(token || "")) throw new Error(`Missing/invalid Admin API token for ${domain}`);
 
@@ -588,7 +610,7 @@ async function runShopifyIngest(env: Env, params: URLSearchParams): Promise<{
 
       let pages = 0;
       let total = 0;
-      let nextPage: string | null = await getCursor(client, channelId, domain);
+      let nextPage: string | null = await getCursor(client, channelId, domain); // resume
       const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
 
       log("ingest:start", { domain, days, resumeFromCursor: !!nextPage });
@@ -621,6 +643,7 @@ async function runShopifyIngest(env: Env, params: URLSearchParams): Promise<{
         const orders = Array.isArray(data.orders) ? data.orders : [];
 
         if (orders.length) {
+          // Build INSERT for existing staging_raw columns
           const cols = ["payload"];
           if (stagingCols.has("channel_id")) cols.push("channel_id");
           if (stagingCols.has("source"))     cols.push("source");
@@ -649,6 +672,7 @@ async function runShopifyIngest(env: Env, params: URLSearchParams): Promise<{
         total += orders.length;
         pages++;
 
+        // Parse Link header for next page_info
         const link = resp.headers.get("link") || resp.headers.get("Link");
         let newCursor: string | null = null;
         if (link) {
@@ -670,6 +694,11 @@ async function runShopifyIngest(env: Env, params: URLSearchParams): Promise<{
     await client.release();
   }
 
-  log("ingest:summary", { limit, maxPages, days, stores: list.map((s) => s.domain), summary });
+  log("ingest:summary", {
+    limit, maxPages, days,
+    stores: list.map((s) => s.domain),
+    summary,
+  });
+
   return { summary };
 }

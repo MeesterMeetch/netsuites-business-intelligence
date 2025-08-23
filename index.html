@@ -17,24 +17,31 @@
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    /* Small helpers for tables/panels */
+    .panel{margin:2rem 0}
+    .table-wrap{overflow:auto;border:1px solid #e6e8eb;border-radius:12px;background:#fff}
+    .table th,.table td{border-bottom:1px solid #eef1f4}
+    .table th{font-weight:600;color:#344054;background:#fafbfc}
+    .metric-value{font-variant-numeric:tabular-nums}
+    .muted{color:#6b7280}
+  </style>
 </head>
 <body>
   <!-- Header -->
   <header class="header-nav">
     <div class="nav-container">
       <div class="logo-section">
-        <a href="#" class="logo" onclick="PlatformActions.showOverview()">📊 BI by Mitch</a>
-        <div class="platform-status">
-          Data sources: NetSuite + Shopify
-        </div>
+        <a href="#" class="logo" onclick="PlatformActions?.showOverview?.()">📊 BI by Mitch</a>
+        <div class="platform-status">Data sources: NetSuite + Shopify</div>
       </div>
       <nav>
         <ul class="nav-links">
-          <li><a href="#overview" class="active" onclick="PlatformActions.showOverview()">Overview</a></li>
-          <li><a href="#product-intelligence" onclick="PlatformActions.showProductIntelligence()">Product Intelligence</a></li>
-          <li><a href="#treasury-management" onclick="PlatformActions.showTreasuryManagement()">Treasury Management</a></li>
-          <li><a href="#reports" onclick="PlatformActions.exportPlatformReport()">Reports</a></li>
-          <li><a href="#export" onclick="PlatformActions.exportDashboard()">Export</a></li>
+          <li><a href="#overview" class="active" onclick="PlatformActions?.showOverview?.()">Overview</a></li>
+          <li><a href="#product-intelligence" onclick="PlatformActions?.showProductIntelligence?.()">Product Intelligence</a></li>
+          <li><a href="#treasury-management" onclick="PlatformActions?.showTreasuryManagement?.()">Treasury Management</a></li>
+          <li><a href="#reports" onclick="PlatformActions?.exportPlatformReport?.()">Reports</a></li>
+          <li><a href="#export" onclick="PlatformActions?.exportDashboard?.()">Export</a></li>
         </ul>
       </nav>
     </div>
@@ -48,37 +55,70 @@
         <p class="overview-subtitle">
           Unified analytics across NetSuite + Shopify — instant store‑level KPIs and product intelligence.
         </p>
-      </div>
-
-      <!-- Live KPI header -->
-      <div class="overview-metrics">
-        <div class="overview-metric">
-          <div class="metric-value" id="kpi-revenue">$0.00</div>
-          <div class="metric-label">Revenue (30d)</div>
-        </div>
-        <div class="overview-metric">
-          <div class="metric-value" id="kpi-orders">0</div>
-          <div class="metric-label">Orders (30d)</div>
-        </div>
-        <div class="overview-metric">
-          <div class="metric-value" id="kpi-aov">$0.00</div>
-          <div class="metric-label">Average Order Value (30d)</div>
-        </div>
-        <div class="overview-metric">
-          <div class="metric-value" id="kpi-repeat">0.0%</div>
-          <div class="metric-label">Repeat Rate (90d)</div>
-        </div>
+        <div id="error-banner" class="muted" style="margin-top:.5rem;"></div>
       </div>
 
       <!-- Store selector -->
-      <div style="display:flex; gap:1rem; align-items:center; margin: 1rem 0 2rem;">
+      <div style="display:flex; gap:1rem; align-items:center; margin: 0 0 1.25rem;">
         <label for="shop-selector" style="font-weight:600;">Store:</label>
         <select id="shop-selector" style="padding:.5rem .75rem; min-width:260px; border-radius:10px; border:1px solid #d0d7de;"></select>
       </div>
 
-      <!-- Modules (kept) -->
+      <!-- LIVE KPI TILES (Orders / Revenue / AOV / Returning %) -->
+      <div class="overview-metrics">
+        <div class="overview-metric">
+          <div id="orders-value" class="metric-value">—</div>
+          <div class="metric-label">Orders (30d)</div>
+        </div>
+        <div class="overview-metric">
+          <div id="revenue-value" class="metric-value">—</div>
+          <div class="metric-label">Revenue (30d)</div>
+        </div>
+        <div class="overview-metric">
+          <div id="aov-value" class="metric-value">—</div>
+          <div class="metric-label">AOV (30d)</div>
+        </div>
+        <div class="overview-metric">
+          <div id="returning-value" class="metric-value">—</div>
+          <div class="metric-label">Returning Rate (90d)</div>
+        </div>
+      </div>
+
+      <!-- MINI SPARKLINE: New vs Returning (last 30 days) -->
+      <div style="margin-top: 1.25rem; background: #fff; border-radius: 12px; border: 1px solid #e6e8eb; padding: 0.75rem 1rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;">
+          <h3 style="margin:0; font-size:1rem; color:#2c3e50;">New vs Returning — last 30 days</h3>
+          <small class="muted" id="sparkline-caption"></small>
+        </div>
+        <canvas id="newret-sparkline" height="60" style="width:100%; max-height:120px"></canvas>
+      </div>
+
+      <!-- 14‑day sales table -->
+      <section class="panel" style="margin-top:1.25rem">
+        <div class="panel-header" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap">
+          <h2 style="margin:0">Sales — Last 14 Days</h2>
+          <small class="muted">Aggregated when “All Stores” is selected</small>
+        </div>
+        <div class="table-wrap">
+          <table class="table" style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding:.5rem .75rem;">Day</th>
+                <th style="text-align:right; padding:.5rem .75rem;">Orders</th>
+                <th style="text-align:right; padding:.5rem .75rem;">Revenue</th>
+                <th style="text-align:right; padding:.5rem .75rem;">Units</th>
+                <th style="text-align:right; padding:.5rem .75rem;">AOV</th>
+              </tr>
+            </thead>
+            <tbody id="sales-14d-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Product/Treasury modules (kept)
+           You can navigate into the detailed sections below via these cards. -->
       <div class="platform-modules">
-        <a href="#product-intelligence" class="module-card product-intelligence" onclick="PlatformActions.showProductIntelligence()">
+        <a href="#product-intelligence" class="module-card product-intelligence" onclick="PlatformActions?.showProductIntelligence?.()">
           <div class="module-header">
             <span class="module-icon">📊</span>
             <div>
@@ -86,16 +126,13 @@
               <h3 class="module-title">Product Intelligence</h3>
             </div>
           </div>
-          <p class="module-description">
-            Comprehensive product profitability analysis, inventory optimization, and sales performance tracking.
-          </p>
+          <p class="module-description">Comprehensive product profitability analysis, inventory optimization, and sales performance tracking.</p>
           <ul class="module-features">
             <li>Product profitability analysis</li>
             <li>Inventory performance tracking</li>
             <li>Sales trend analysis</li>
             <li>Margin optimization</li>
           </ul>
-          <!-- (optional) small stats; if you keep them, they’ll be filled by your own scripts later -->
           <div class="module-stats">
             <div class="module-stats-title">Key Metrics</div>
             <div class="stats-grid">
@@ -111,7 +148,7 @@
           </div>
         </a>
 
-        <a href="#treasury-management" class="module-card treasury-management" onclick="PlatformActions.showTreasuryManagement()">
+        <a href="#treasury-management" class="module-card treasury-management" onclick="PlatformActions?.showTreasuryManagement?.()">
           <div class="module-header">
             <span class="module-icon">💰</span>
             <div>
@@ -119,9 +156,7 @@
               <h3 class="module-title">Treasury Management</h3>
             </div>
           </div>
-          <p class="module-description">
-            Cash flow forecasting, working capital optimization, and financial intelligence for strategic planning.
-          </p>
+          <p class="module-description">Cash flow forecasting, working capital optimization, and financial intelligence for strategic planning.</p>
           <ul class="module-features">
             <li>90-day tactical forecasting</li>
             <li>6-month strategic projections</li>
@@ -145,9 +180,136 @@
       </div>
     </section>
 
-    <!-- Product Intelligence Section (kept) -->
+    <!-- ===== Top / Bottom SKUs & Repeat Rates ===== -->
+    <section class="panel">
+      <div class="panel-header">
+        <h2 style="margin:0">Top SKUs</h2>
+        <div class="controls" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Store:
+            <select id="top-skus-store" style="min-width:220px"></select>
+          </label>
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Window:
+            <select id="top-skus-days">
+              <option value="7">7d</option>
+              <option value="14">14d</option>
+              <option value="30" selected>30d</option>
+              <option value="90">90d</option>
+              <option value="180">180d</option>
+              <option value="365">365d</option>
+            </select>
+          </label>
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Include 365‑day cols
+            <input type="checkbox" id="top-skus-365" checked>
+          </label>
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Limit:
+            <input id="top-skus-limit" type="number" min="1" max="500" value="50" style="width:80px">
+          </label>
+          <button id="top-skus-refresh" class="btn btn-secondary">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:.5rem .75rem;">SKU</th>
+              <th style="text-align:left; padding:.5rem .75rem;">Title</th>
+              <th style="text-align:right; padding:.5rem .75rem;">Units (Wnd)</th>
+              <th style="text-align:right; padding:.5rem .75rem;">Revenue (Wnd)</th>
+              <th class="col-365" style="text-align:right; padding:.5rem .75rem;">Units (365d)</th>
+              <th class="col-365" style="text-align:right; padding:.5rem .75rem;">Revenue (365d)</th>
+            </tr>
+          </thead>
+          <tbody id="top-skus-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2 style="margin:0">Bottom SKUs</h2>
+        <div class="controls" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Store:
+            <select id="bottom-skus-store" style="min-width:220px"></select>
+          </label>
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Window:
+            <select id="bottom-skus-days">
+              <option value="7">7d</option>
+              <option value="14">14d</option>
+              <option value="30" selected>30d</option>
+              <option value="90">90d</option>
+              <option value="180">180d</option>
+              <option value="365">365d</option>
+            </select>
+          </label>
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Include 365‑day cols
+            <input type="checkbox" id="bottom-skus-365" checked>
+          </label>
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Limit:
+            <input id="bottom-skus-limit" type="number" min="1" max="500" value="50" style="width:80px">
+          </label>
+          <button id="bottom-skus-refresh" class="btn btn-secondary">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:.5rem .75rem;">SKU</th>
+              <th style="text-align:left; padding:.5rem .75rem;">Title</th>
+              <th style="text-align:right; padding:.5rem .75rem;">Units (Wnd)</th>
+              <th style="text-align:right; padding:.5rem .75rem;">Revenue (Wnd)</th>
+              <th class="col-365" style="text-align:right; padding:.5rem .75rem;">Units (365d)</th>
+              <th class="col-365" style="text-align:right; padding:.5rem .75rem;">Revenue (365d)</th>
+            </tr>
+          </thead>
+          <tbody id="bottom-skus-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap">
+        <h2 style="margin:0">Repeat Rates</h2>
+        <div class="controls" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Store:
+            <select id="repeat-store" style="min-width:220px"></select>
+          </label>
+          <label style="display:flex; gap:.25rem; align-items:center;">
+            Show Avg LTV
+            <input type="checkbox" id="repeat-show-ltv" checked>
+          </label>
+          <button id="repeat-refresh" class="btn btn-secondary">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:.5rem .75rem;">Store</th>
+              <th style="text-align:right; padding:.5rem .75rem;">Customers</th>
+              <th style="text-align:right; padding:.5rem .75rem;">One‑time</th>
+              <th style="text-align:right; padding:.5rem .75rem;">Repeat</th>
+              <th style="text-align:right; padding:.5rem .75rem;">Repeat %</th>
+              <th class="col-ltv" style="text-align:right; padding:.5rem .75rem;">Avg LTV (repeat)</th>
+            </tr>
+          </thead>
+          <tbody id="repeat-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================== Product Intelligence (kept) ===================== -->
     <section id="product-intelligence-section" class="phase-section product-intelligence">
-      <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">← Back to Overview</a>
+      <a href="#overview" class="back-button" onclick="PlatformActions?.showOverview?.()">← Back to Overview</a>
 
       <div class="phase-header">
         <span class="phase-badge product">PRODUCT INTELLIGENCE</span>
@@ -158,7 +320,7 @@
         Upload NetSuite exports to analyze profitability, inventory health, and sales trends by SKU and customer.
       </p>
 
-      <!-- Upload grid (kept from your file) -->
+      <!-- Upload grid -->
       <div class="upload-grid">
         <div class="upload-card">
           <div class="status-indicator" id="cost-status"></div>
@@ -205,13 +367,13 @@
         </div>
       </div>
 
-      <!-- Results Panel (kept) -->
+      <!-- Results Panel -->
       <div id="product-results-panel" class="results-panel" style="display:none;">
         <h3 style="margin-top:0; color:var(--text-dark);">📊 Product Intelligence Results</h3>
         <div id="product-results-content" class="results-content"></div>
       </div>
 
-      <!-- Charts (kept) -->
+      <!-- Charts -->
       <div class="dashboard-grid">
         <div class="chart-container">
           <h3 class="chart-title"><span class="chart-icon">📈</span> Profit vs Loss Analysis</h3>
@@ -224,42 +386,42 @@
         </div>
       </div>
 
-      <!-- Actions (kept) -->
+      <!-- Actions -->
       <div class="action-buttons">
-        <button class="btn btn-primary" onclick="ProductIntelligence.generateAnalysis()">📊 Generate Analysis</button>
-        <button class="btn btn-secondary" onclick="ProductIntelligence.optimizePortfolio()">🎯 Optimize Portfolio</button>
-        <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()">📉 Export Losing Items</button>
-        <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()">📦 Export Stockout Risks</button>
-        <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()">🏭 Inventory Optimization</button>
-        <button class="btn btn-success" onclick="ProductIntelligence.exportAllItems()">📄 Complete Analysis</button>
-        <button class="btn btn-primary" onclick="ProductIntelligence.exportReport()" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe)">📋 Executive Summary</button>
+        <button class="btn btn-primary" onclick="ProductIntelligence?.generateAnalysis?.()">📊 Generate Analysis</button>
+        <button class="btn btn-secondary" onclick="ProductIntelligence?.optimizePortfolio?.()">🎯 Optimize Portfolio</button>
+        <button class="btn btn-warning" onclick="ProductIntelligence?.exportLosingItems?.()">📉 Export Losing Items</button>
+        <button class="btn btn-danger" onclick="ProductIntelligence?.exportStockoutRisks?.()">📦 Export Stockout Risks</button>
+        <button class="btn btn-info" onclick="ProductIntelligence?.exportInventoryOptimization?.()">🏭 Inventory Optimization</button>
+        <button class="btn btn-success" onclick="ProductIntelligence?.exportAllItems?.()">📄 Complete Analysis</button>
+        <button class="btn btn-primary" onclick="ProductIntelligence?.exportReport?.()" style="background:linear-gradient(135deg,#6c5ce7,#a29bfe)">📋 Executive Summary</button>
       </div>
 
-      <!-- Quick Export (kept) -->
+      <!-- Quick Export -->
       <div style="background:linear-gradient(135deg,#f8f9fa,#e9ecef); border-radius:15px; padding:1.5rem; margin:2rem 0; border:2px solid #e1e8ed; box-shadow:0 4px 15px rgba(0,0,0,.1);">
         <h4 style="margin-top:0; color:#2c3e50; display:flex; align-items:center;">
           <span style="margin-right:.5rem;">⚡</span> Quick Export Actions
         </h4>
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem;">
           <div style="text-align:center; padding:1rem; background:white; border-radius:10px; border:1px solid #dee2e6;">
-            <button class="btn btn-warning" onclick="ProductIntelligence.exportLosingItems()" style="width:100%; margin-bottom:.5rem;">📉 Losing Items</button>
-            <small style="color:#6c757d; font-size:.85rem; line-height:1.4;">Items requiring price review or discontinuation</small>
+            <button class="btn btn-warning" onclick="ProductIntelligence?.exportLosingItems?.()" style="width:100%; margin-bottom:.5rem;">📉 Losing Items</button>
+            <small class="muted">Items requiring price review or discontinuation</small>
           </div>
           <div style="text-align:center; padding:1rem; background:white; border-radius:10px; border:1px solid #dee2e6;">
-            <button class="btn btn-danger" onclick="ProductIntelligence.exportStockoutRisks()" style="width:100%; margin-bottom:.5rem;">📦 Stockout Risks</button>
-            <small style="color:#6c757d; font-size:.85rem; line-height:1.4;">Items running low on stock needing immediate orders</small>
+            <button class="btn btn-danger" onclick="ProductIntelligence?.exportStockoutRisks?.()" style="width:100%; margin-bottom:.5rem;">📦 Stockout Risks</button>
+            <small class="muted">Items running low on stock needing immediate orders</small>
           </div>
           <div style="text-align:center; padding:1rem; background:white; border-radius:10px; border:1px solid #dee2e6;">
-            <button class="btn btn-info" onclick="ProductIntelligence.exportInventoryOptimization()" style="width:100%; margin-bottom:.5rem;">🏭 Inventory Optimization</button>
-            <small style="color:#6c757d; font-size:.85rem; line-height:1.4;">Overstocked & dead stock items to liquidate</small>
+            <button class="btn btn-info" onclick="ProductIntelligence?.exportInventoryOptimization?.()" style="width:100%; margin-bottom:.5rem;">🏭 Inventory Optimization</button>
+            <small class="muted">Overstocked & dead stock items to liquidate</small>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Treasury Management Section (kept) -->
+    <!-- ===================== Treasury Management (kept) ===================== -->
     <section id="treasury-management-section" class="phase-section treasury-management">
-      <a href="#overview" class="back-button" onclick="PlatformActions.showOverview()">← Back to Overview</a>
+      <a href="#overview" class="back-button" onclick="PlatformActions?.showOverview?.()">← Back to Overview</a>
 
       <div class="phase-header">
         <span class="phase-badge treasury">TREASURY MANAGEMENT</span>
@@ -270,7 +432,6 @@
         Enterprise-grade cash flow forecasting with predictive analytics and working capital optimization.
       </p>
 
-      <!-- Upload grid (kept) -->
       <div class="upload-grid">
         <div class="upload-card">
           <div class="status-indicator" id="gl-status"></div>
@@ -317,7 +478,6 @@
         </div>
       </div>
 
-      <!-- Status -->
       <div class="status-panel">
         <h3 style="margin-top:0; color:var(--text-dark);">📊 Processing Status & Insights</h3>
         <div id="status-messages" class="status-messages">
@@ -329,46 +489,40 @@
         </div>
       </div>
 
-      <!-- Results -->
       <div id="treasury-results-panel" class="results-panel" style="display:none;">
         <h3 style="margin-top:0; color:var(--text-dark);">💰 Treasury Management Results</h3>
         <div id="treasury-results-content" class="results-content"></div>
       </div>
 
-      <!-- Charts -->
       <div class="dashboard-grid">
         <div class="chart-container">
           <h3 class="chart-title"><span class="chart-icon">📈</span> 90-Day Cash Flow Forecast</h3>
           <canvas id="forecast-90-chart" width="400" height="300"></canvas>
         </div>
-
         <div class="chart-container">
           <h3 class="chart-title"><span class="chart-icon">📊</span> 6-Month Strategic Projection</h3>
           <canvas id="forecast-6m-chart" width="400" height="300"></canvas>
         </div>
-
         <div class="chart-container">
           <h3 class="chart-title"><span class="chart-icon">🎯</span> Working Capital Optimization</h3>
           <canvas id="working-capital-chart" width="400" height="300"></canvas>
         </div>
-
         <div class="chart-container">
           <h3 class="chart-title"><span class="chart-icon">🎲</span> Scenario Analysis</h3>
           <canvas id="scenario-chart" width="400" height="300"></canvas>
         </div>
       </div>
 
-      <!-- Actions -->
       <div class="action-buttons">
-        <button class="btn btn-primary" onclick="TreasuryManagement.generateForecast()">📊 Generate Forecast</button>
-        <button class="btn btn-secondary" onclick="TreasuryManagement.runScenarioAnalysis()">🎲 Run Scenario Analysis</button>
-        <button class="btn btn-success" onclick="TreasuryManagement.optimizeWorkingCapital()">⚙️ Optimize Working Capital</button>
-        <button class="btn btn-warning" onclick="TreasuryManagement.generateExecutiveReport()">📄 Executive Report</button>
+        <button class="btn btn-primary" onclick="TreasuryManagement?.generateForecast?.()">📊 Generate Forecast</button>
+        <button class="btn btn-secondary" onclick="TreasuryManagement?.runScenarioAnalysis?.()">🎲 Run Scenario Analysis</button>
+        <button class="btn btn-success" onclick="TreasuryManagement?.optimizeWorkingCapital?.()">⚙️ Optimize Working Capital</button>
+        <button class="btn btn-warning" onclick="TreasuryManagement?.generateExecutiveReport?.()">📄 Executive Report</button>
       </div>
     </section>
   </div>
 
-  <!-- Scripts -->
+  <!-- Scripts: metrics must come before dashboard so hooks exist -->
   <script src="web/metrics.js"></script>
   <script src="js/dashboard.js"></script>
 </body>

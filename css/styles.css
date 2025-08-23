@@ -292,6 +292,7 @@ body {
     font-size: 0.8rem;
     color: var(--text-light);
 }
+.metric-value { font-variant-numeric: tabular-nums; }
 
 /* === PHASE SECTIONS === */
 .phase-section {
@@ -1100,6 +1101,74 @@ body {
         font-size: 1.3rem;
     }
 }
+/* ==== Mitch BI: data tables & panels ==== */
+
+.panel { margin: 2rem 0; }
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid #e6e8eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+/* compact table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.table th, .table td {
+  padding: .5rem .75rem;
+  border-bottom: 1px solid #eef1f4;
+  vertical-align: middle;
+}
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: #fafbfc;
+  z-index: 1;
+  font-weight: 600;
+  color: #344054;
+  text-transform: none;
+}
+.table tbody tr:nth-child(even) { background: #fbfcfe; }
+.table tbody tr:hover { background: #f4f7fb; }
+
+.metric-value { font-variant-numeric: tabular-nums; }
+
+.btn {
+  border-radius: 10px;
+  padding: .5rem .75rem;
+  border: 1px solid #d0d7de;
+  background: #fff;
+  cursor: pointer;
+}
+.btn:hover { background: #f6f8fa; }
+.btn-primary {
+  background: #2a5298;
+  border-color: #294e90;
+  color: #fff;
+}
+.btn-primary:hover { filter: brightness(0.95); }
+.btn-secondary { background: #f3f4f6; }
+.btn-secondary:hover { background: #e9ecef; }
+
+.controls select, .controls input[type="number"] {
+  padding: .35rem .5rem;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: .75rem;
+  padding: .15rem .4rem;
+  border-radius: .4rem;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  background: #fafafa;
+}
 
 /* === LOADING SPINNER === */
 .loading-spinner {
@@ -1115,4 +1184,20 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* KPI shimmer */
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.metric-value.shimmer {
+  color: transparent !important;
+  border-radius: 8px;
+  min-width: 6ch;
+  display: inline-block;
+  height: 1.4em;
+  background: linear-gradient(90deg, #f2f4f7 0px, #e9eef5 40px, #f2f4f7 80px);
+  background-size: 200px 100%;
+  animation: shimmer 1.2s infinite linear;
 }

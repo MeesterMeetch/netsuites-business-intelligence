@@ -1,0 +1,9 @@
+# Local dev secrets
+.dev.vars
+.dev.vars.local
+
+# System files
+.DS_Store
+
+# Node
+node_modules/
