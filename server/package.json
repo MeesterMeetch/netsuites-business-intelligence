@@ -1,16 +1,23 @@
 {
-  "type": "module",
-  "dependencies": {
-    "@neondatabase/serverless": "^0.10.4"
-  },
-  "name": "server",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+    "type": "module",
+    "name": "server",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts":
+    {
+        "dev": "wrangler dev --local",
+        "deploy": "wrangler deploy",
+        "tail": "wrangler tail",
+        "lint": "echo \"(add eslint here later)\"",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords":
+    [],
+    "author": "",
+    "license": "ISC",
+    "dependencies":
+    {
+        "@neondatabase/serverless": "^0.10.4"
+    }
 }
