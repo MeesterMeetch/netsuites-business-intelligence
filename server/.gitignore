@@ -1,9 +1,16 @@
-# Local dev secrets
+# Ignore local env files (contain real secrets)
 .dev.vars
 .dev.vars.local
 
-# System files
+# Node stuff
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS cruft
 .DS_Store
 
-# Node
-node_modules/
+# Wrangler temp/build outputs
+.wrangler/
+dist/
