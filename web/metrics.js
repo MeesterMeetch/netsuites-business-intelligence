@@ -1,9 +1,12 @@
 /**
- * metrics.js — live KPIs, sparkline, sales table (export with window),
- * Top/Bottom SKUs, Repeat Rates, and KPI loading shimmer.
+ * metrics.js — live KPIs, sparkline, N‑day sales table (CSV),
+ * Top/Bottom SKUs, Repeat Rates, and loading shimmer on KPI tiles.
  */
 
-const WORKER_BASE = "https://netsuite-bi-ingest.mitchbiworker.workers.dev";
+const WORKER_BASE =
+  (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+    ? "http://localhost:8787"
+    : "https://netsuite-bi-ingest.mitchbiworker.workers.dev";
 
 /* ---------- utils ---------- */ 
 async function fetchJSON(url) {
@@ -40,14 +43,14 @@ function downloadCSV(filename, rows) {
   link.remove();
 }
 
-/* ---------- global state ---------- */
+/* ---------- global state for exports ---------- */
 const Last = {
   topSkus: [],
   bottomSkus: [],
   repeatRates: [],
   newRetDaily: [],
-  salesTable: [],     // current window rows for export
-  salesWindowDays: 14 // current selected window for sales table
+  salesND: [],
+  currentSalesWindow: 14,
 };
 
 /* ---------- shops ---------- */
@@ -70,7 +73,7 @@ async function loadShops() {
   });
 }
 
-/* ---------- KPI shimmer ---------- */
+/* ---------- shimmer helpers ---------- */
 function setKpiLoading(isLoading) {
   const ids = ["orders-value","revenue-value","aov-value","returning-value"];
   ids.forEach(id => {
@@ -84,46 +87,45 @@ function setKpiLoading(isLoading) {
 /* ---------- KPI tiles + sparkline ---------- */
 async function loadKPIs(storeDomain = "") {
   setKpiLoading(true);
-  try {
-    // rolling 7/30
-    const { rows: rollRows = [] } = await fetchJSON(`${WORKER_BASE}/api/kpis/rolling`);
-    let r;
-    if (storeDomain) {
-      r = rollRows.find(row => (row.shop_domain || "") === storeDomain);
-    } else {
-      r = rollRows.reduce((acc, row) => {
-        acc.orders_30d  += num(row.orders_30d);
-        acc.revenue_30d += num(row.revenue_30d);
-        acc.units_30d   += num(row.units_30d);
-        return acc;
-      }, { orders_30d:0, revenue_30d:0, units_30d:0 });
-      r.aov_30d = r.orders_30d > 0 ? r.revenue_30d / r.orders_30d : 0;
-    }
-    const orders30  = num(r?.orders_30d);
-    const revenue30 = num(r?.revenue_30d);
-    const aov30     = r?.aov_30d != null ? num(r.aov_30d) : (orders30>0 ? revenue30/orders30 : 0);
 
-    $("orders-value").textContent  = orders30.toLocaleString();
-    $("revenue-value").textContent = fmtMoney(revenue30);
-    $("aov-value").textContent     = fmtMoney(aov30);
-
-    // returning rate (90d)
-    const { rows: rows90 = [] } = await fetchJSON(qs("/api/kpis/daily", { days: 90, store: storeDomain || undefined }));
-    let newOrders=0, returningOrders=0;
-    for (const row of rows90) { newOrders += num(row.new_orders); returningOrders += num(row.returning_orders); }
-    const totalNR = newOrders + returningOrders;
-    const returningRate = totalNR > 0 ? (returningOrders / totalNR) : 0;
-    $("returning-value").textContent = `${(returningRate * 100).toFixed(1)}%`;
-
-    // sparkline (30d)
-    const { rows: rows30 = [] } = await fetchJSON(qs("/api/kpis/daily", { days: 30, store: storeDomain || undefined }));
-    Last.newRetDaily = rows30
-      .map(r => ({ day: (r.day_mt || "").slice(0,10), new_orders: num(r.new_orders), returning_orders: num(r.returning_orders) }))
-      .sort((a,b)=> a.day < b.day ? -1 : 1);
-    drawNewReturningSparkline(Last.newRetDaily);
-  } finally {
-    setKpiLoading(false);
+  // rolling 7/30
+  const { rows: rollRows = [] } = await fetchJSON(`${WORKER_BASE}/api/kpis/rolling`);
+  let r;
+  if (storeDomain) {
+    r = rollRows.find(row => (row.shop_domain || "") === storeDomain);
+  } else {
+    r = rollRows.reduce((acc, row) => {
+      acc.orders_30d += num(row.orders_30d);
+      acc.revenue_30d += num(row.revenue_30d);
+      acc.units_30d += num(row.units_30d);
+      return acc;
+    }, { orders_30d:0, revenue_30d:0, units_30d:0 });
+    r.aov_30d = r.orders_30d > 0 ? r.revenue_30d / r.orders_30d : 0;
   }
+  const orders30  = num(r?.orders_30d);
+  const revenue30 = num(r?.revenue_30d);
+  const aov30     = r?.aov_30d != null ? num(r.aov_30d) : (orders30>0 ? revenue30/orders30 : 0);
+
+  $("orders-value").textContent  = orders30.toLocaleString();
+  $("revenue-value").textContent = fmtMoney(revenue30);
+  $("aov-value").textContent     = fmtMoney(aov30);
+
+  // returning rate (90d)
+  const { rows: rows90 = [] } = await fetchJSON(qs("/api/kpis/daily", { days: 90, store: storeDomain || undefined }));
+  let newOrders=0, returningOrders=0;
+  for (const row of rows90) { newOrders += num(row.new_orders); returningOrders += num(row.returning_orders); }
+  const totalNR = newOrders + returningOrders;
+  const returningRate = totalNR > 0 ? (returningOrders / totalNR) : 0;
+  $("returning-value").textContent = `${(returningRate * 100).toFixed(1)}%`;
+
+  // sparkline (30d new vs returning)
+  const { rows: rows30 = [] } = await fetchJSON(qs("/api/kpis/daily", { days: 30, store: storeDomain || undefined }));
+  Last.newRetDaily = rows30
+    .map(r => ({ day: (r.day_mt || "").slice(0,10), new_orders: num(r.new_orders), returning_orders: num(r.returning_orders) }))
+    .sort((a,b)=> a.day < b.day ? -1 : 1);
+  drawNewReturningSparkline(Last.newRetDaily);
+
+  setKpiLoading(false);
 }
 
 let sparkChart;
@@ -137,13 +139,10 @@ function drawNewReturningSparkline(data) {
   if (sparkChart) sparkChart.destroy();
   sparkChart = new Chart(ctx, {
     type: "line",
-    data: {
-      labels,
-      datasets: [
-        { label: "New", data: newData, borderWidth: 2, tension: .3, fill: false },
-        { label: "Returning", data: retData, borderWidth: 2, tension: .3, fill: false },
-      ]
-    },
+    data: { labels, datasets: [
+      { label: "New", data: newData, borderWidth: 2, tension: .3, fill: false },
+      { label: "Returning", data: retData, borderWidth: 2, tension: .3, fill: false },
+    ]},
     options: {
       responsive: true,
       plugins: { legend: { display: true, position: "bottom" } },
@@ -159,12 +158,16 @@ function drawNewReturningSparkline(data) {
   if (cap) cap.textContent = `New ${totalNew.toLocaleString()} vs Returning ${totalRet.toLocaleString()}`;
 }
 
-/* ---------- sales table (windowed) + CSV ---------- */
-async function loadSalesTable(storeDomain = "", days = Last.salesWindowDays) {
-  Last.salesWindowDays = days;
+/* ---------- N‑day sales table (+ CSV) ---------- */
+async function loadSalesTable(storeDomain = "", windowDays = null) {
+  const sel = $("sales-window");
+  const days = windowDays != null ? Number(windowDays)
+              : (sel ? Number(sel.value || 14) : 14);
+  Last.currentSalesWindow = days;
+
   const { rows = [] } = await fetchJSON(qs("/api/kpis/daily", { days, store: storeDomain || undefined }));
 
-  // aggregate by day across stores when "All Stores"
+  // aggregate across domains per day
   const grouped = new Map();
   for (const r of rows) {
     const key = (r.day_mt || "").slice(0,10);
@@ -176,10 +179,9 @@ async function loadSalesTable(storeDomain = "", days = Last.salesWindowDays) {
     grouped.set(key, cur);
   }
   const data = Array.from(grouped.values()).sort((a,b)=> a.day < b.day ? 1 : -1);
-  Last.salesTable = data;
+  Last.salesND = data;
 
-  // draw table
-  const tbody = $("sales-rows") || $("sales-14d-tbody"); // support both ids
+  const tbody = $("sales-14d-tbody");
   if (tbody) {
     tbody.innerHTML = "";
     for (const r of data) {
@@ -196,69 +198,14 @@ async function loadSalesTable(storeDomain = "", days = Last.salesWindowDays) {
     }
   }
 
-  ensureSalesControls(); // make sure the selector + export button exist
-}
-
-function ensureSalesControls() {
-  // Find a good container to park controls near the table.
-  // If you have a specific wrapper, give it id="sales-controls".
-  let host = document.getElementById("sales-controls");
-  if (!host) {
-    // try to mount near the global store selector
-    const sel = document.getElementById("shop-selector");
-    if (sel && sel.parentElement) host = sel.parentElement;
-  }
-  if (!host) host = document.body;
-
-  // Create window <select>
-  if (!document.getElementById("sales-window-select")) {
-    const label = document.createElement("label");
-    label.style.display = "inline-flex";
-    label.style.alignItems = "center";
-    label.style.gap = ".5rem";
-    label.style.marginLeft = "auto";
-    label.style.marginRight = ".5rem";
-    label.innerHTML = `Window: `;
-    const select = document.createElement("select");
-    select.id = "sales-window-select";
-    [1,7,14,30,90,365].forEach(d => {
-      const opt = document.createElement("option");
-      opt.value = String(d);
-      opt.textContent = `${d}d`;
-      if (d === Last.salesWindowDays) opt.selected = true;
-      select.appendChild(opt);
-    });
-    select.addEventListener("change", async () => {
-      const store = $("shop-selector")?.value || "";
-      await loadSalesTable(store, Number(select.value));
-    });
-    label.appendChild(select);
-    host.appendChild(label);
-  }
-
-  // Create single Export button
-  if (!document.getElementById("sales-export-csv")) {
-    const btn = document.createElement("button");
-    btn.id = "sales-export-csv";
-    btn.className = "btn btn-secondary";
-    btn.textContent = "Download CSV";
-    btn.style.marginLeft = ".5rem";
-    btn.addEventListener("click", () => {
-      // Convert Last.salesTable (day, orders, revenue, units, aov)
-      const rows = Last.salesTable.map(r => {
-        const aov = r.orders > 0 ? (r.revenue / r.orders) : 0;
-        return { day: r.day, orders: r.orders, revenue: r.revenue.toFixed(2), units: r.units, aov: aov.toFixed(2) };
-      });
-      downloadCSV(`sales_${Last.salesWindowDays}d.csv`, rows);
-    });
-    host.appendChild(btn);
+  // wire Export button
+  const btn = $("sales-export");
+  if (btn) {
+    btn.onclick = () => downloadCSV(`sales_${days}d.csv`, Last.salesND);
   }
 }
 
 /* ---------- Top / Bottom SKUs ---------- */
-function skuUnitsWnd(r){ return num(r.units_wnd ?? r.units_window); }
-function skuRevenueWnd(r){ return num(r.revenue_wnd ?? r.revenue_window); }
-
 async function loadTopSkus() {
   const store = $("top-skus-store")?.value || "";
   const days = Number($("top-skus-days")?.value || 30);
@@ -281,8 +228,8 @@ async function loadTopSkus() {
       tr.innerHTML = `
         <td>${r.sku || ""}</td>
         <td>${r.title || ""}</td>
-        <td style="text-align:right">${skuUnitsWnd(r).toLocaleString()}</td>
-        <td style="text-align:right">${fmtMoney(skuRevenueWnd(r))}</td>
+        <td style="text-align:right">${num(r.units_window).toLocaleString()}</td>
+        <td style="text-align:right">${fmtMoney(r.revenue_window)}</td>
         <td class="col-365" style="text-align:right; ${show365 ? "" : "display:none"}">${r.units_365 != null ? num(r.units_365).toLocaleString() : ""}</td>
         <td class="col-365" style="text-align:right; ${show365 ? "" : "display:none"}">${r.revenue_365 != null ? fmtMoney(r.revenue_365) : ""}</td>
       `;
@@ -314,8 +261,8 @@ async function loadBottomSkus() {
       tr.innerHTML = `
         <td>${r.sku || ""}</td>
         <td>${r.title || ""}</td>
-        <td style="text-align:right">${skuUnitsWnd(r).toLocaleString()}</td>
-        <td style="text-align:right">${fmtMoney(skuRevenueWnd(r))}</td>
+        <td style="text-align:right">${num(r.units_window).toLocaleString()}</td>
+        <td style="text-align:right">${fmtMoney(r.revenue_window)}</td>
         <td class="col-365" style="text-align:right; ${show365 ? "" : "display:none"}">${r.units_365 != null ? num(r.units_365).toLocaleString() : ""}</td>
         <td class="col-365" style="text-align:right; ${show365 ? "" : "display:none"}">${r.revenue_365 != null ? fmtMoney(r.revenue_365) : ""}</td>
       `;
@@ -391,25 +338,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadShops();
 
-    // initial loads
-    await loadKPIs("");             // all stores
-    await loadSalesTable("", 14);   // all stores, 14d default
+    // global store selector
+    const globStoreSel = $("shop-selector");
+
+    await loadKPIs(globStoreSel?.value || "");
+    await loadSalesTable(globStoreSel?.value || "", $("sales-window")?.value || 14);
     await loadTopSkus();
     await loadBottomSkus();
     await loadRepeatRates();
 
     ensureButtons();
-    ensureSalesControls();
 
-    // global store selector -> refresh everything
-    $("shop-selector")?.addEventListener("change", async (e) => {
+    // React to store scope change
+    globStoreSel?.addEventListener("change", async (e) => {
       const domain = e.target.value || "";
       await loadKPIs(domain);
-      await loadSalesTable(domain, Last.salesWindowDays);
+      await loadSalesTable(domain, $("sales-window")?.value || 14);
       ["top-skus-store","bottom-skus-store","repeat-store"].forEach(id => { if ($(id)) $(id).value = domain; });
       await loadTopSkus();
       await loadBottomSkus();
       await loadRepeatRates();
+    });
+
+    // Sales window selector + Export
+    $("sales-window")?.addEventListener("change", async (e) => {
+      const domain = globStoreSel?.value || "";
+      await loadSalesTable(domain, e.target.value);
+    });
+    $("sales-export")?.addEventListener("click", () => {
+      const days = Last.currentSalesWindow || 14;
+      downloadCSV(`sales_${days}d.csv`, Last.salesND);
     });
 
     // Top
