@@ -29,8 +29,8 @@
         "backfill:uf": "npm run backfill:one -- united-fuses.myshopify.com false ${DAYS:-30}",
         "backfill:all": "npm run backfill:ees && sleep 5 && npm run backfill:cbg && sleep 5 && npm run backfill:uf",
         "backfill:auto": "DAYS=30 npm run backfill:all && sleep 5 && DAYS=365 npm run backfill:all && sleep 5 && DAYS=365 npm run backfill:all",
-        "backfill:one": "sh -c 'STORE=\"$1\"; RESET=\"${2:-false}\"; DAYS=\"${3:-365}\"; T=\"\"; [ -n \"$BACKFILL_TOKEN\" ] && T=\"&token=$BACKFILL_TOKEN\"; for a in 1 2 3; do echo \"Backfill $STORE days=$DAYS reset=$RESET (attempt $a)\"; R=$(curl -sS -i -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=$DAYS&store=$STORE&hard_reset=$RESET$T\"); STATUS=$(printf \"%s\" \"$R\" | sed -n '1s/^[^ ]* \\([0-9][0-9][0-9]\\).*/\\1/p'); BODY=$(printf \"%s\" \"$R\" | sed '1,/^\\r\\?$/d'); if [ \"$STATUS\" = \"200\" ] && printf \"%s\" \"$BODY\" | jq . >/dev/null 2>&1; then printf \"%s\n\" \"$BODY\" | jq .; exit 0; else echo \"HTTP $STATUS\"; echo \"$BODY\"; sleep 3; fi; done; echo \"Backfill failed after retries\"; exit 1'",
-        "backfill:one:debug": "sh -c 'STORE=\"$1\"; RESET=\"${2:-false}\"; DAYS=\"${3:-365}\"; T=\"\"; [ -n \"$BACKFILL_TOKEN\" ] && T=\"&token=$BACKFILL_TOKEN\"; curl -i -X POST \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/admin/backfill?days=$DAYS&store=$STORE&hard_reset=$RESET$T\"'",
+        "backfill:one": "bash scripts/backfill_one.sh",
+        "backfill:one:debug": "bash scripts/backfill_one_debug.sh",
         "menu": "node tools/menu.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
