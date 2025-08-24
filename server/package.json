@@ -22,8 +22,10 @@
         "kpis:bottom-skus": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/bottom-skus?days=30&limit=10\" | jq .",
         "kpis:daily": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/daily?days=14\" | jq .",
         "kpis:rolling": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/rolling\" | jq .",
+        "db:psql": "psql \"$DATABASE_URL\"",
+        "db:migrate": "psql -v ON_ERROR_STOP=1 \"$DATABASE_URL\" -f sql/001_kpi_views.sql",
         "commit": "git add . && git commit -m \"auto: update + deploy\" && git push origin main",
-        "ship": "npm run commit && npm run deploy",
+        "ship": "npm run commit && npm run db:migrate && npm run deploy",
         "menu": "node tools/menu.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
