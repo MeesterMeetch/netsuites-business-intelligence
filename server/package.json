@@ -20,6 +20,7 @@
         "kpis:bottom-skus": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/bottom-skus?days=30&limit=10\" | jq .",
         "kpis:daily": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/daily?days=14\" | jq .",
         "kpis:rolling": "curl -s \"https://netsuite-bi-ingest.mitchbiworker.workers.dev/api/kpis/rolling\" | jq .",
+        "safe:backfill": "bash scripts/safe_backfill.sh",
         "backfill:ees:reset": "npm run backfill:one -- essential-electric-supply.myshopify.com true 365",
         "backfill:cbg:reset": "npm run backfill:one -- cbguys.myshopify.com true 365",
         "backfill:uf:reset": "npm run backfill:one -- united-fuses.myshopify.com true 365",
